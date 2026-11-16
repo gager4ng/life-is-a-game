@@ -1,0 +1,87 @@
+import type { ContentBundle, WorldEventDef } from "@liag/engine";
+import { validateContentRefs } from "@liag/engine";
+import lagosDialogueJson from "./regions/lagos/dialogue.json";
+import lagosJson from "./regions/lagos/region.json";
+import questsJson from "./quests/quests.json";
+import worldEventsJson from "./data/world-events.json";
+import {
+  DialogueFileSchema,
+  QuestFileSchema,
+  RegionPackSchema,
+  WorldEventFileSchema,
+  type DialogueFile,
+  type RegionPack,
+} from "./schema";
+
+export * from "./schema";
+
+/**
+ * Region packs. To add Abuja, Port Harcourt or Kano: create regions/<name>/region.json and
+ * dialogue.json in the same shape and list them here. No engine change is needed.
+ */
+const RAW_REGION_PACKS: unknown[] = [lagosJson];
+const RAW_DIALOGUE: Record<string, unknown> = { lagos: lagosDialogueJson };
+
+export function parseRegionPack(raw: unknown): RegionPack {
+  return RegionPackSchema.parse(raw);
+}
+
+export function parseWorldEvents(raw: unknown): WorldEventDef[] {
+  return WorldEventFileSchema.parse(raw).events;
+}
+
+/** Combine region packs, quests and world events into one validated bundle. */
+export function buildBundle(
+  packs: RegionPack[],
+  quests: ContentBundle["quests"],
+  worldEvents: WorldEventDef[],
+): ContentBundle {
+  const bundle: ContentBundle = {
+    regions: packs.map((p) => p.region),
+    locations: packs.flatMap((p) => p.locations),
+    characters: packs.flatMap((p) => p.characters),
+    relationships: packs.flatMap((p) => p.relationships),
+    quests,
+    worldEvents,
+  };
+  const errors = validateContentRefs(bundle);
+  if (errors.length) throw new Error(`Content has broken references:\n- ${errors.join("\n- ")}`);
+  return bundle;
+}
+
+export function loadContent(): ContentBundle {
+  const packs = RAW_REGION_PACKS.map(parseRegionPack);
+  const quests = QuestFileSchema.parse(questsJson).quests;
+  return buildBundle(packs, quests, parseWorldEvents(worldEventsJson));
+}
+
+export interface DialogueBank {
+  /** True when any merged dialogue file is still placeholder. */
+  placeholder: boolean;
+  lines: Record<string, string[]>;
+}
+
+export function loadDialogue(): DialogueBank {
+  const files: DialogueFile[] = Object.keys(RAW_DIALOGUE)
+    .sort()
+    .map((k) => DialogueFileSchema.parse(RAW_DIALOGUE[k]));
+  const lines: Record<string, string[]> = {};
+  for (const f of files) Object.assign(lines, f.lines);
+  return { placeholder: files.some((f) => f.$meta.status !== "APPROVED"), lines };
+}
+
+/** Status of every content file, for the "is this text approved?" check. */
+export function contentStatus(): { file: string; status: string }[] {
+  return [
+    { file: "regions/lagos/region.json", status: RegionPackSchema.parse(lagosJson).$meta.status },
+    {
+      file: "regions/lagos/dialogue.json",
+      status: DialogueFileSchema.parse(lagosDialogueJson).$meta.status,
+    },
+    { file: "quests/quests.json", status: QuestFileSchema.parse(questsJson).$meta.status },
+    {
+      file: "data/world-events.json",
+      status: WorldEventFileSchema.parse(worldEventsJson).$meta.status,
+    },
+  ];
+}

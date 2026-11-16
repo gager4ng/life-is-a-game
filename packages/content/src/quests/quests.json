@@ -1,0 +1,188 @@
+{
+  "$meta": {
+    "status": "PLACEHOLDER",
+    "note": "PLACEHOLDER CONTENT - quest titles, summaries and objectives are not approved player-facing text."
+  },
+  "quests": [
+    {
+      "id": "q_first_gig",
+      "kind": "main",
+      "title": "Get your first paid gig",
+      "summary": "You came to Lagos with a guitar and big plans. Find someone who will put you on a stage, and get paid for it.",
+      "repeatable": false,
+      "prerequisites": [],
+      "deadline": { "day": 21 },
+      "failWhen": [],
+      "startStep": "find_lead",
+      "steps": [
+        {
+          "id": "find_lead",
+          "kind": "condition",
+          "objective": "Find someone who can get you on a stage.",
+          "completeWhen": {
+            "type": "any",
+            "of": [
+              { "type": "has_flag", "flag": "lead:gig_live_spot" },
+              { "type": "has_flag", "flag": "lead:gig_duet" }
+            ]
+          },
+          "next": [
+            { "when": { "type": "has_flag", "flag": "lead:gig_duet" }, "goto": "duet" },
+            { "goto": "audition" }
+          ]
+        },
+        {
+          "id": "audition",
+          "kind": "check",
+          "objective": "Play for Uncle Tunde at Bluelight Live Spot one evening (18:00-23:00).",
+          "attemptWhen": {
+            "type": "all",
+            "of": [
+              { "type": "at_location", "location": "loc_yaba_livespot" },
+              { "type": "time_between", "from": "18:00", "to": "23:00" },
+              { "type": "present", "character": "c_tunde" }
+            ]
+          },
+          "chance": {
+            "base": 25,
+            "traits": { "talented": 20 },
+            "relationship": { "with": "c_tunde", "dim": "respect", "per": 0.5 },
+            "moodAbove": { "value": 60, "bonus": 10 },
+            "energyBelow": { "value": 30, "penalty": 20 },
+            "min": 5,
+            "max": 90
+          },
+          "maxAttempts": 3,
+          "retryAfterTicks": 144,
+          "onSuccess": "complete",
+          "onFailure": "audition",
+          "onExhausted": "fail"
+        },
+        {
+          "id": "duet",
+          "kind": "check",
+          "objective": "Perform the duet with Ada at Bluelight Live Spot (19:00-23:00).",
+          "attemptWhen": {
+            "type": "all",
+            "of": [
+              { "type": "at_location", "location": "loc_yaba_livespot" },
+              { "type": "time_between", "from": "19:00", "to": "23:00" },
+              { "type": "present", "character": "c_ada" }
+            ]
+          },
+          "chance": {
+            "base": 45,
+            "traits": { "talented": 15 },
+            "relationship": { "with": "c_ada", "dim": "warmth", "per": 0.5 },
+            "min": 10,
+            "max": 95
+          },
+          "maxAttempts": 2,
+          "retryAfterTicks": 144,
+          "onSuccess": "complete",
+          "onFailure": "duet",
+          "onExhausted": "audition"
+        }
+      ],
+      "rewards": {
+        "money": 15000,
+        "mood": 15,
+        "flags": ["musician:paid"],
+        "relationships": [{ "with": "c_tunde", "dim": "respect", "delta": 10 }]
+      },
+      "failurePenalty": { "mood": -15, "flags": ["musician:not_yet"] }
+    },
+    {
+      "id": "q_open_stall",
+      "kind": "side",
+      "title": "Open a stall in the market",
+      "summary": "Someone told you how stalls at Oja Tuntun really change hands. Save up and pay the levy before the space goes to someone else.",
+      "repeatable": false,
+      "prerequisites": [{ "type": "has_flag", "flag": "tip:stall" }],
+      "deadline": { "daysAfterStart": 21 },
+      "failWhen": [{ "type": "relationship", "with": "c_ngozi", "dim": "tension", "atLeast": 60 }],
+      "startStep": "save_up",
+      "steps": [
+        {
+          "id": "save_up",
+          "kind": "condition",
+          "objective": "Save N30,000 for the stall levy.",
+          "completeWhen": { "type": "money_at_least", "amount": 30000 },
+          "next": [
+            {
+              "when": { "type": "relationship", "with": "c_ngozi", "dim": "trust", "atLeast": 25 },
+              "goto": "pay_vouched"
+            },
+            { "goto": "pay_full" }
+          ]
+        },
+        {
+          "id": "pay_vouched",
+          "kind": "condition",
+          "objective": "Mama Ngozi will vouch for you: pay the reduced levy at the market while she is there.",
+          "completeWhen": {
+            "type": "all",
+            "of": [
+              { "type": "at_location", "location": "loc_yaba_market" },
+              { "type": "time_between", "from": "08:00", "to": "18:00" },
+              { "type": "present", "character": "c_ngozi" },
+              { "type": "money_at_least", "amount": 20000 }
+            ]
+          },
+          "effects": { "money": -20000 },
+          "next": [{ "goto": "complete" }]
+        },
+        {
+          "id": "pay_full",
+          "kind": "condition",
+          "objective": "Pay the full levy at the market office.",
+          "completeWhen": {
+            "type": "all",
+            "of": [
+              { "type": "at_location", "location": "loc_yaba_market" },
+              { "type": "time_between", "from": "08:00", "to": "18:00" },
+              { "type": "money_at_least", "amount": 30000 }
+            ]
+          },
+          "effects": { "money": -30000 },
+          "next": [{ "goto": "complete" }]
+        }
+      ],
+      "rewards": {
+        "mood": 12,
+        "flags": ["trader:stall_open"],
+        "relationships": [{ "with": "c_ngozi", "dim": "warmth", "delta": 5 }]
+      },
+      "failurePenalty": { "mood": -10 }
+    },
+    {
+      "id": "q_repay_debt",
+      "kind": "emergent",
+      "title": "Pay back what you owe",
+      "summary": "Someone helped you out with money. Pay them back before they start telling people about it.",
+      "bind": "debt",
+      "repeatable": true,
+      "prerequisites": [{ "type": "owes_money", "to": "$creditor" }],
+      "deadline": { "daysAfterStart": 4 },
+      "failWhen": [],
+      "startStep": "repay",
+      "steps": [
+        {
+          "id": "repay",
+          "kind": "condition",
+          "objective": "Find them and pay them back.",
+          "completeWhen": { "type": "debt_repaid", "debt": "$debt" },
+          "next": [{ "goto": "complete" }]
+        }
+      ],
+      "rewards": {
+        "mood": 5,
+        "relationships": [{ "with": "$creditor", "dim": "respect", "delta": 3 }]
+      },
+      "failurePenalty": {
+        "mood": -8,
+        "relationships": [{ "with": "$creditor", "dim": "warmth", "delta": -5 }]
+      }
+    }
+  ]
+}

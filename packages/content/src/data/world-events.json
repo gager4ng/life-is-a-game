@@ -1,0 +1,58 @@
+{
+  "$meta": {
+    "status": "PLACEHOLDER",
+    "note": "PLACEHOLDER world events standing in for the future admin-approved daily news feed. All events are fictional."
+  },
+  "events": [
+    {
+      "id": "wev_cup_final_night",
+      "name": "Cup final night (fictional league)",
+      "kind": "football",
+      "regionId": "lagos",
+      "fromDay": 2,
+      "toDay": 2,
+      "prices": { "drink": 1.2, "mealOut": 1.1 },
+      "moodDelta": 3,
+      "routineOverrides": [
+        {
+          "who": { "traits": ["football_fan"] },
+          "from": "19:00",
+          "to": "21:30",
+          "at": "loc_yaba_buka",
+          "activity": "watch_match"
+        }
+      ],
+      "crowdBoost": [{ "locationId": "loc_yaba_buka", "factor": 1.6 }]
+    },
+    {
+      "id": "wev_fuel_price_rise",
+      "name": "Fuel price rise",
+      "kind": "economy",
+      "regionId": "lagos",
+      "fromDay": 3,
+      "toDay": 60,
+      "prices": { "transportFare": 1.6 },
+      "moodDelta": -4
+    },
+    {
+      "id": "wev_street_carnival",
+      "name": "Yaba street carnival (fictional)",
+      "kind": "festival",
+      "regionId": "lagos",
+      "fromDay": 6,
+      "toDay": 6,
+      "prices": { "mealOut": 1.2 },
+      "moodDelta": 6,
+      "routineOverrides": [
+        {
+          "who": { "all": true },
+          "from": "16:00",
+          "to": "19:30",
+          "at": "loc_yaba_market",
+          "activity": "carnival"
+        }
+      ],
+      "crowdBoost": [{ "locationId": "loc_yaba_market", "factor": 2 }]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@liag/sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CLI that runs the world and prints a readable journal.",
+  "bin": {
+    "liag-sim": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/cli.js --log-level=warning",
+    "lint": "eslint src test",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@liag/content": "workspace:*",
+    "@liag/engine": "workspace:*"
+  }
+}

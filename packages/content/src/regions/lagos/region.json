@@ -1,0 +1,937 @@
+{
+  "$meta": {
+    "status": "PLACEHOLDER",
+    "note": "PLACEHOLDER CONTENT - not approved for release. All characters and venues are fictional. Names, descriptions and numbers are for testing the engine only and must be approved by the owner before shipping."
+  },
+  "region": {
+    "id": "lagos",
+    "name": "Lagos",
+    "areas": [
+      { "id": "yaba", "name": "Yaba" },
+      { "id": "island", "name": "Lagos Island" }
+    ],
+    "climate": [
+      { "dry": 0.45, "rain": 0.03, "heavy_rain": 0.02, "harmattan": 0.5 },
+      { "dry": 0.55, "rain": 0.08, "heavy_rain": 0.02, "harmattan": 0.35 },
+      { "dry": 0.6, "rain": 0.25, "heavy_rain": 0.1, "harmattan": 0.05 },
+      { "dry": 0.45, "rain": 0.35, "heavy_rain": 0.2, "harmattan": 0 },
+      { "dry": 0.35, "rain": 0.4, "heavy_rain": 0.25, "harmattan": 0 },
+      { "dry": 0.25, "rain": 0.4, "heavy_rain": 0.35, "harmattan": 0 },
+      { "dry": 0.3, "rain": 0.4, "heavy_rain": 0.3, "harmattan": 0 },
+      { "dry": 0.55, "rain": 0.35, "heavy_rain": 0.1, "harmattan": 0 },
+      { "dry": 0.35, "rain": 0.4, "heavy_rain": 0.25, "harmattan": 0 },
+      { "dry": 0.4, "rain": 0.4, "heavy_rain": 0.2, "harmattan": 0 },
+      { "dry": 0.65, "rain": 0.25, "heavy_rain": 0.05, "harmattan": 0.05 },
+      { "dry": 0.5, "rain": 0.05, "heavy_rain": 0, "harmattan": 0.45 }
+    ],
+    "prices": { "transportFare": 500, "mealOut": 1500, "mealHome": 700, "drink": 1000 }
+  },
+  "locations": [
+    {
+      "id": "loc_yaba_buka",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Mama Titi's Buka",
+      "type": "buka",
+      "hours": { "open": "06:30", "close": "21:30" },
+      "capacity": 24,
+      "outdoor": false
+    },
+    {
+      "id": "loc_yaba_market",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Oja Tuntun Market",
+      "type": "market",
+      "hours": { "open": "06:30", "close": "19:30" },
+      "capacity": 150,
+      "outdoor": true
+    },
+    {
+      "id": "loc_yaba_park",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Yaba Danfo Park",
+      "type": "transport_hub",
+      "hours": null,
+      "capacity": 80,
+      "outdoor": true
+    },
+    {
+      "id": "loc_yaba_livespot",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Bluelight Live Spot",
+      "type": "music_venue",
+      "hours": { "open": "16:00", "close": "24:00" },
+      "capacity": 40,
+      "outdoor": false
+    },
+    {
+      "id": "loc_yaba_poly",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Mainland Polytechnic",
+      "type": "school",
+      "hours": { "open": "07:00", "close": "18:00" },
+      "capacity": 400,
+      "outdoor": false
+    },
+    {
+      "id": "loc_island_office",
+      "regionId": "lagos",
+      "areaId": "island",
+      "name": "Harbour View Offices",
+      "type": "workplace",
+      "hours": { "open": "07:00", "close": "19:00" },
+      "capacity": 300,
+      "outdoor": false
+    },
+    {
+      "id": "loc_home_adeleke",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Adeleke Street Compound",
+      "type": "home",
+      "hours": null,
+      "capacity": 20,
+      "outdoor": false
+    },
+    {
+      "id": "loc_home_alagomeji",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Alagomeji Flats",
+      "type": "home",
+      "hours": null,
+      "capacity": 12,
+      "outdoor": false
+    },
+    {
+      "id": "loc_home_oyingbo",
+      "regionId": "lagos",
+      "areaId": "yaba",
+      "name": "Oyingbo Lane House",
+      "type": "home",
+      "hours": null,
+      "capacity": 12,
+      "outdoor": false
+    }
+  ],
+  "characters": [
+    {
+      "id": "c_tobi",
+      "name": "Tobi Adeyemi",
+      "shortName": "Tobi",
+      "regionId": "lagos",
+      "homeId": "loc_home_adeleke",
+      "role": "newcomer guitarist doing odd jobs",
+      "job": {
+        "title": "market porter",
+        "workplaceId": "loc_yaba_market",
+        "dailyIncome": [2000, 4500]
+      },
+      "traits": ["talented", "curious", "warm"],
+      "items": [],
+      "start": { "energy": 85, "money": 1200, "mood": 60 },
+      "knownLocations": ["loc_yaba_park"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:30", "at": "home", "activity": "morning" },
+          { "from": "07:30", "at": "work", "activity": "work" },
+          { "from": "17:30", "at": "home", "activity": "rest" },
+          { "from": "22:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "08:00", "at": "home", "activity": "morning" },
+          { "from": "10:00", "at": "work", "activity": "work" },
+          { "from": "15:00", "at": "home", "activity": "rest" },
+          { "from": "22:30", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "lunch_at_buka",
+            "chance": 0.6,
+            "days": "any",
+            "from": "13:00",
+            "to": "13:40",
+            "at": "loc_yaba_buka",
+            "activity": "lunch"
+          },
+          {
+            "id": "morning_hustle_at_park",
+            "chance": 0.3,
+            "days": "weekday",
+            "from": "07:00",
+            "to": "07:30",
+            "at": "loc_yaba_park",
+            "activity": "hustle"
+          },
+          {
+            "id": "evening_at_park",
+            "chance": 0.35,
+            "days": "any",
+            "from": "18:00",
+            "to": "19:00",
+            "at": "loc_yaba_park",
+            "activity": "hang_out"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "id": "find_a_gig",
+          "kind": "seek_opportunity",
+          "opportunity": "gig_lead",
+          "priority": 3
+        },
+        {
+          "id": "find_business_idea",
+          "kind": "seek_opportunity",
+          "opportunity": "business_tip",
+          "priority": 2
+        }
+      ],
+      "offers": [],
+      "playable": true
+    },
+    {
+      "id": "c_ada",
+      "name": "Adaeze Okonkwo",
+      "shortName": "Ada",
+      "regionId": "lagos",
+      "homeId": "loc_home_adeleke",
+      "role": "waitress and aspiring singer",
+      "job": { "title": "waitress", "workplaceId": "loc_yaba_buka", "dailyIncome": [2500, 4000] },
+      "traits": ["ambitious", "warm", "competitive", "talkative"],
+      "items": [],
+      "start": { "energy": 80, "money": 9000, "mood": 62 },
+      "knownLocations": ["loc_yaba_park", "loc_yaba_market", "loc_yaba_livespot"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:00", "at": "home", "activity": "morning" },
+          { "from": "07:00", "at": "work", "activity": "work" },
+          { "from": "16:00", "at": "home", "activity": "rest" },
+          { "from": "22:30", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "08:00", "at": "home", "activity": "morning" },
+          { "from": "10:00", "at": "work", "activity": "work" },
+          { "from": "17:00", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "watch_the_band",
+            "chance": 0.45,
+            "days": "any",
+            "from": "19:00",
+            "to": "22:00",
+            "at": "loc_yaba_livespot",
+            "activity": "watch_band"
+          },
+          {
+            "id": "sing_at_bluelight",
+            "chance": 0.5,
+            "days": "any",
+            "requiresFlag": "lead:gig_live_spot",
+            "from": "20:00",
+            "to": "22:30",
+            "at": "loc_yaba_livespot",
+            "activity": "perform"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "id": "get_on_stage",
+          "kind": "seek_opportunity",
+          "opportunity": "gig_lead",
+          "priority": 3
+        }
+      ],
+      "offers": [
+        {
+          "id": "duet_slot",
+          "kind": "gig_lead",
+          "grantsFlag": "lead:gig_duet",
+          "revealsLocation": "loc_yaba_livespot",
+          "minTrust": 15,
+          "uses": 1
+        }
+      ],
+      "playable": false
+    },
+    {
+      "id": "c_ngozi",
+      "name": "Ngozi Eze",
+      "shortName": "Mama Ngozi",
+      "regionId": "lagos",
+      "homeId": "loc_home_oyingbo",
+      "role": "foodstuff trader",
+      "job": {
+        "title": "foodstuff trader",
+        "workplaceId": "loc_yaba_market",
+        "dailyIncome": [5000, 12000]
+      },
+      "traits": ["shrewd", "generous", "talkative", "early_riser"],
+      "items": ["umbrella"],
+      "start": { "energy": 80, "money": 60000, "mood": 60 },
+      "knownLocations": ["loc_yaba_buka", "loc_yaba_park"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "05:00", "at": "home", "activity": "morning" },
+          { "from": "05:40", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "06:30", "at": "work", "activity": "work" },
+          { "from": "18:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "19:10", "at": "home", "activity": "rest" },
+          { "from": "21:30", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:00", "at": "home", "activity": "morning" },
+          { "from": "07:00", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "07:40", "at": "work", "activity": "work" },
+          { "from": "16:00", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "16:40", "at": "home", "activity": "rest" },
+          { "from": "21:30", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "lunch_at_buka",
+            "chance": 0.35,
+            "days": "weekday",
+            "from": "12:30",
+            "to": "13:10",
+            "at": "loc_yaba_buka",
+            "activity": "lunch"
+          }
+        ]
+      },
+      "goals": [{ "id": "grow_savings", "kind": "save_money", "amount": 150000, "priority": 1 }],
+      "offers": [
+        {
+          "id": "stall_tip",
+          "kind": "business_tip",
+          "grantsFlag": "tip:stall",
+          "minTrust": 5,
+          "uses": 3
+        }
+      ],
+      "playable": false
+    },
+    {
+      "id": "c_emeka",
+      "name": "Emeka Obi",
+      "shortName": "Emeka",
+      "regionId": "lagos",
+      "homeId": "loc_home_adeleke",
+      "role": "danfo conductor",
+      "job": {
+        "title": "danfo conductor",
+        "workplaceId": "loc_yaba_park",
+        "dailyIncome": [3000, 7000]
+      },
+      "traits": ["playful", "hot_tempered", "sociable", "football_fan"],
+      "items": [],
+      "start": { "energy": 80, "money": 2500, "mood": 58 },
+      "knownLocations": ["loc_yaba_buka", "loc_yaba_market", "loc_yaba_livespot"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "05:00", "at": "home", "activity": "morning" },
+          { "from": "05:30", "at": "work", "activity": "work" },
+          { "from": "12:30", "at": "loc_yaba_buka", "activity": "lunch" },
+          { "from": "13:10", "at": "work", "activity": "work" },
+          { "from": "20:00", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "07:00", "at": "home", "activity": "morning" },
+          { "from": "08:00", "at": "work", "activity": "work" },
+          { "from": "12:30", "at": "loc_yaba_buka", "activity": "lunch" },
+          { "from": "13:10", "at": "work", "activity": "work" },
+          { "from": "18:00", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "weekend_drinks",
+            "chance": 0.4,
+            "days": "weekend",
+            "from": "20:00",
+            "to": "23:00",
+            "at": "loc_yaba_livespot",
+            "activity": "drinks"
+          }
+        ]
+      },
+      "goals": [{ "id": "save_for_own_bus", "kind": "save_money", "amount": 50000, "priority": 1 }],
+      "offers": [],
+      "playable": false
+    },
+    {
+      "id": "c_tunde",
+      "name": "Tunde Bakare",
+      "shortName": "Uncle Tunde",
+      "regionId": "lagos",
+      "homeId": "loc_home_alagomeji",
+      "role": "owner of Bluelight Live Spot",
+      "job": {
+        "title": "venue owner",
+        "workplaceId": "loc_yaba_livespot",
+        "dailyIncome": [8000, 20000]
+      },
+      "traits": ["no_nonsense", "shrewd", "sociable"],
+      "items": ["umbrella"],
+      "start": { "energy": 80, "money": 120000, "mood": 60 },
+      "knownLocations": ["loc_yaba_buka", "loc_yaba_market", "loc_yaba_park"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "09:00", "at": "home", "activity": "morning" },
+          { "from": "11:00", "at": "loc_yaba_market", "activity": "errands" },
+          { "from": "13:00", "at": "loc_yaba_buka", "activity": "lunch" },
+          { "from": "14:00", "at": "home", "activity": "rest" },
+          { "from": "16:00", "at": "work", "activity": "work" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "10:00", "at": "home", "activity": "morning" },
+          { "from": "12:30", "at": "loc_yaba_buka", "activity": "lunch" },
+          { "from": "13:30", "at": "home", "activity": "rest" },
+          { "from": "16:00", "at": "work", "activity": "work" }
+        ],
+        "variations": []
+      },
+      "goals": [],
+      "offers": [
+        {
+          "id": "bluelight_slot",
+          "kind": "gig_lead",
+          "grantsFlag": "lead:gig_live_spot",
+          "revealsLocation": "loc_yaba_livespot",
+          "minTrust": 0,
+          "uses": 2
+        }
+      ],
+      "playable": false
+    },
+    {
+      "id": "c_funmi",
+      "name": "Funmilayo Adewale",
+      "shortName": "Funmi",
+      "regionId": "lagos",
+      "homeId": "loc_home_adeleke",
+      "role": "polytechnic student",
+      "job": null,
+      "traits": ["curious", "shy", "prepared"],
+      "items": ["umbrella"],
+      "start": { "energy": 80, "money": 15000, "mood": 60 },
+      "knownLocations": ["loc_yaba_poly", "loc_yaba_park", "loc_yaba_market"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:30", "at": "home", "activity": "morning" },
+          { "from": "07:30", "at": "loc_yaba_poly", "activity": "class" },
+          { "from": "15:00", "at": "loc_yaba_market", "activity": "errands" },
+          { "from": "16:30", "at": "home", "activity": "study" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "08:30", "at": "home", "activity": "morning" },
+          { "from": "11:00", "at": "loc_yaba_market", "activity": "errands" },
+          { "from": "13:00", "at": "home", "activity": "study" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "lunch_at_buka",
+            "chance": 0.4,
+            "days": "weekday",
+            "from": "12:30",
+            "to": "13:10",
+            "at": "loc_yaba_buka",
+            "activity": "lunch"
+          },
+          {
+            "id": "see_live_music",
+            "chance": 0.3,
+            "days": "any",
+            "from": "19:00",
+            "to": "21:30",
+            "at": "loc_yaba_livespot",
+            "activity": "watch_band"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "id": "find_internship",
+          "kind": "seek_opportunity",
+          "opportunity": "job_contact",
+          "priority": 2
+        },
+        {
+          "id": "find_bluelight",
+          "kind": "learn_place",
+          "location": "loc_yaba_livespot",
+          "priority": 1
+        }
+      ],
+      "offers": [],
+      "playable": true
+    },
+    {
+      "id": "c_ibrahim",
+      "name": "Ibrahim Musa",
+      "shortName": "Ibrahim",
+      "regionId": "lagos",
+      "homeId": "loc_home_alagomeji",
+      "role": "POS agent at the danfo park",
+      "job": { "title": "POS agent", "workplaceId": "loc_yaba_park", "dailyIncome": [4000, 9000] },
+      "traits": ["shrewd", "early_riser", "prepared", "sociable"],
+      "items": ["umbrella"],
+      "start": { "energy": 80, "money": 40000, "mood": 60 },
+      "knownLocations": ["loc_yaba_buka", "loc_yaba_market"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "05:00", "at": "home", "activity": "morning" },
+          { "from": "06:00", "at": "work", "activity": "work" },
+          { "from": "19:30", "at": "home", "activity": "rest" },
+          { "from": "22:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:30", "at": "home", "activity": "morning" },
+          { "from": "08:00", "at": "work", "activity": "work" },
+          { "from": "17:00", "at": "home", "activity": "rest" },
+          { "from": "22:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "lunch_at_buka",
+            "chance": 0.5,
+            "days": "any",
+            "from": "13:00",
+            "to": "13:40",
+            "at": "loc_yaba_buka",
+            "activity": "lunch"
+          }
+        ]
+      },
+      "goals": [
+        { "id": "save_for_wedding", "kind": "save_money", "amount": 300000, "priority": 1 }
+      ],
+      "offers": [],
+      "playable": false
+    },
+    {
+      "id": "c_chiamaka",
+      "name": "Chiamaka Nwosu",
+      "shortName": "Chiamaka",
+      "regionId": "lagos",
+      "homeId": "loc_home_alagomeji",
+      "role": "insurance analyst on the Island",
+      "job": {
+        "title": "insurance analyst",
+        "workplaceId": "loc_island_office",
+        "dailyIncome": [12000, 15000]
+      },
+      "traits": ["prepared", "generous", "no_nonsense"],
+      "items": ["umbrella"],
+      "start": { "energy": 80, "money": 80000, "mood": 60 },
+      "knownLocations": ["loc_yaba_park", "loc_yaba_buka", "loc_yaba_market", "loc_yaba_livespot"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "05:30", "at": "home", "activity": "morning" },
+          { "from": "06:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "07:20", "at": "work", "activity": "work" },
+          { "from": "17:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "18:20", "at": "home", "activity": "rest" },
+          { "from": "22:30", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "09:00", "at": "home", "activity": "morning" },
+          { "from": "11:00", "at": "loc_yaba_market", "activity": "shopping" },
+          { "from": "13:00", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "dinner_at_buka",
+            "chance": 0.3,
+            "days": "weekday",
+            "from": "18:20",
+            "to": "19:00",
+            "at": "loc_yaba_buka",
+            "activity": "dinner"
+          },
+          {
+            "id": "weekend_music",
+            "chance": 0.35,
+            "days": "weekend",
+            "from": "19:00",
+            "to": "22:00",
+            "at": "loc_yaba_livespot",
+            "activity": "watch_band"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "id": "side_hustle",
+          "kind": "seek_opportunity",
+          "opportunity": "business_tip",
+          "priority": 1
+        }
+      ],
+      "offers": [
+        {
+          "id": "office_contact",
+          "kind": "job_contact",
+          "grantsFlag": "contact:office",
+          "minTrust": 20,
+          "uses": 2
+        }
+      ],
+      "playable": false
+    },
+    {
+      "id": "c_titi",
+      "name": "Titilayo Ogun",
+      "shortName": "Mama Titi",
+      "regionId": "lagos",
+      "homeId": "loc_home_oyingbo",
+      "role": "buka owner",
+      "job": {
+        "title": "buka owner",
+        "workplaceId": "loc_yaba_buka",
+        "dailyIncome": [7000, 15000]
+      },
+      "traits": ["warm", "generous", "talkative", "football_fan"],
+      "items": [],
+      "start": { "energy": 80, "money": 70000, "mood": 62 },
+      "knownLocations": ["loc_yaba_market", "loc_yaba_park"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "05:00", "at": "home", "activity": "morning" },
+          { "from": "05:40", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "06:30", "at": "work", "activity": "work" },
+          { "from": "21:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "22:10", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:00", "at": "home", "activity": "morning" },
+          { "from": "06:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "07:10", "at": "work", "activity": "work" },
+          { "from": "21:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "22:10", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": []
+      },
+      "goals": [],
+      "offers": [
+        {
+          "id": "market_tip",
+          "kind": "business_tip",
+          "grantsFlag": "tip:stall",
+          "minTrust": 25,
+          "uses": 2
+        }
+      ],
+      "playable": false
+    },
+    {
+      "id": "c_segun",
+      "name": "Segun Alabi",
+      "shortName": "Segun",
+      "regionId": "lagos",
+      "homeId": "loc_home_oyingbo",
+      "role": "phone repairer at the market",
+      "job": {
+        "title": "phone repairer",
+        "workplaceId": "loc_yaba_market",
+        "dailyIncome": [3000, 8000]
+      },
+      "traits": ["football_fan", "playful", "stingy"],
+      "items": [],
+      "start": { "energy": 80, "money": 900, "mood": 55 },
+      "knownLocations": ["loc_yaba_buka", "loc_yaba_park", "loc_yaba_livespot"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "06:30", "at": "home", "activity": "morning" },
+          { "from": "07:10", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "07:50", "at": "work", "activity": "work" },
+          { "from": "18:00", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "18:40", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "09:00", "at": "home", "activity": "morning" },
+          { "from": "09:40", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "10:20", "at": "work", "activity": "work" },
+          { "from": "16:00", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "16:40", "at": "home", "activity": "rest" },
+          { "from": "23:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "lunch_at_buka",
+            "chance": 0.5,
+            "days": "weekday",
+            "from": "13:00",
+            "to": "13:40",
+            "at": "loc_yaba_buka",
+            "activity": "lunch"
+          }
+        ]
+      },
+      "goals": [],
+      "offers": [],
+      "playable": false
+    },
+    {
+      "id": "c_kelechi",
+      "name": "Kelechi Uba",
+      "shortName": "Kelechi",
+      "regionId": "lagos",
+      "homeId": "loc_home_oyingbo",
+      "role": "tailor at the market",
+      "job": { "title": "tailor", "workplaceId": "loc_yaba_market", "dailyIncome": [3500, 7000] },
+      "traits": ["shy", "proud", "early_riser"],
+      "items": ["umbrella"],
+      "start": { "energy": 80, "money": 12000, "mood": 55 },
+      "knownLocations": ["loc_yaba_buka", "loc_yaba_park"],
+      "routine": {
+        "weekday": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "05:30", "at": "home", "activity": "morning" },
+          { "from": "06:20", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "07:00", "at": "work", "activity": "work" },
+          { "from": "18:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "19:10", "at": "home", "activity": "rest" },
+          { "from": "22:00", "at": "home", "activity": "sleep" }
+        ],
+        "weekend": [
+          { "from": "00:00", "at": "home", "activity": "sleep" },
+          { "from": "07:30", "at": "home", "activity": "morning" },
+          { "from": "08:30", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "09:10", "at": "work", "activity": "work" },
+          { "from": "15:00", "at": "loc_yaba_park", "activity": "commute" },
+          { "from": "15:40", "at": "home", "activity": "rest" },
+          { "from": "22:00", "at": "home", "activity": "sleep" }
+        ],
+        "variations": [
+          {
+            "id": "lunch_at_buka",
+            "chance": 0.3,
+            "days": "weekday",
+            "from": "13:00",
+            "to": "13:40",
+            "at": "loc_yaba_buka",
+            "activity": "lunch"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "id": "bigger_shop",
+          "kind": "seek_opportunity",
+          "opportunity": "business_tip",
+          "priority": 2
+        }
+      ],
+      "offers": [],
+      "playable": false
+    }
+  ],
+  "relationships": [
+    {
+      "from": "c_ada",
+      "to": "c_emeka",
+      "mutual": true,
+      "trust": 25,
+      "familiarity": 50,
+      "respect": 15,
+      "warmth": 30,
+      "tension": 5
+    },
+    {
+      "from": "c_ada",
+      "to": "c_titi",
+      "mutual": true,
+      "trust": 40,
+      "familiarity": 70,
+      "respect": 30,
+      "warmth": 35,
+      "tension": 0
+    },
+    {
+      "from": "c_ada",
+      "to": "c_funmi",
+      "mutual": true,
+      "trust": 15,
+      "familiarity": 35,
+      "respect": 10,
+      "warmth": 20,
+      "tension": 0
+    },
+    {
+      "from": "c_emeka",
+      "to": "c_funmi",
+      "mutual": true,
+      "trust": 5,
+      "familiarity": 25,
+      "respect": 5,
+      "warmth": 10,
+      "tension": 0
+    },
+    {
+      "from": "c_emeka",
+      "to": "c_ibrahim",
+      "mutual": true,
+      "trust": 35,
+      "familiarity": 70,
+      "respect": 10,
+      "warmth": 30,
+      "tension": 10
+    },
+    {
+      "from": "c_emeka",
+      "to": "c_segun",
+      "mutual": true,
+      "trust": 10,
+      "familiarity": 30,
+      "respect": 5,
+      "warmth": 20,
+      "tension": 0
+    },
+    {
+      "from": "c_ngozi",
+      "to": "c_titi",
+      "mutual": true,
+      "trust": 50,
+      "familiarity": 80,
+      "respect": 30,
+      "warmth": 45,
+      "tension": 0
+    },
+    {
+      "from": "c_ngozi",
+      "to": "c_kelechi",
+      "mutual": true,
+      "trust": 20,
+      "familiarity": 45,
+      "respect": 15,
+      "warmth": 10,
+      "tension": 0
+    },
+    {
+      "from": "c_ngozi",
+      "to": "c_segun",
+      "mutual": true,
+      "trust": 5,
+      "familiarity": 40,
+      "respect": 0,
+      "warmth": 10,
+      "tension": 10
+    },
+    {
+      "from": "c_segun",
+      "to": "c_kelechi",
+      "mutual": true,
+      "trust": 10,
+      "familiarity": 50,
+      "respect": 0,
+      "warmth": 5,
+      "tension": 15
+    },
+    {
+      "from": "c_tunde",
+      "to": "c_titi",
+      "mutual": true,
+      "trust": 25,
+      "familiarity": 40,
+      "respect": 25,
+      "warmth": 15,
+      "tension": 0
+    },
+    {
+      "from": "c_chiamaka",
+      "to": "c_ibrahim",
+      "mutual": true,
+      "trust": 20,
+      "familiarity": 30,
+      "respect": 20,
+      "warmth": 10,
+      "tension": 0
+    },
+    {
+      "from": "c_chiamaka",
+      "to": "c_tunde",
+      "mutual": true,
+      "trust": 10,
+      "familiarity": 25,
+      "respect": 10,
+      "warmth": 10,
+      "tension": 0
+    },
+    {
+      "from": "c_ibrahim",
+      "to": "c_tunde",
+      "mutual": true,
+      "trust": 15,
+      "familiarity": 30,
+      "respect": 10,
+      "warmth": 5,
+      "tension": 0
+    },
+    {
+      "from": "c_tobi",
+      "to": "c_ada",
+      "mutual": true,
+      "trust": 0,
+      "familiarity": 10,
+      "respect": 0,
+      "warmth": 5,
+      "tension": 0
+    },
+    {
+      "from": "c_tobi",
+      "to": "c_emeka",
+      "mutual": true,
+      "trust": 0,
+      "familiarity": 10,
+      "respect": 0,
+      "warmth": 5,
+      "tension": 0
+    },
+    {
+      "from": "c_tobi",
+      "to": "c_funmi",
+      "mutual": true,
+      "trust": 0,
+      "familiarity": 5,
+      "respect": 0,
+      "warmth": 0,
+      "tension": 0
+    }
+  ]
+}

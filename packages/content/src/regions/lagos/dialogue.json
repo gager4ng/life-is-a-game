@@ -1,0 +1,248 @@
+{
+  "$meta": {
+    "status": "PLACEHOLDER",
+    "note": "PLACEHOLDER DIALOGUE - every line here is draft text for engine testing only (English with light Pidgin). None of it is approved to ship. Keys fall back from specific to general: help.umbrella.yes.funny -> help.umbrella.yes -> help.umbrella."
+  },
+  "lines": {
+    "passing.open.friendly": [
+      "Good morning o, {other}!",
+      "{other}! How body?",
+      "Ah {other}, how you dey?"
+    ],
+    "passing.open.firm": [
+      "{other}.",
+      "Morning, {other}. Make we no waste time today.",
+      "{other}, I see you."
+    ],
+    "passing.open.funny": [
+      "{other}! You don chop breakfast or na only fine face you carry come?",
+      "Na you be this? Lagos never finish you?",
+      "{other}, you look like person wey owe NEPA money."
+    ],
+    "passing.open.walk_away": ["(nods and keeps moving)", "(pretends not to see {other})"],
+    "passing.reply.friendly": [
+      "I dey o, thank God. And you?",
+      "We move! You sef well done.",
+      "Fine, fine. Greet your people for me."
+    ],
+    "passing.reply.firm": ["I'm fine.", "Morning. I dey busy small.", "We dey."],
+    "passing.reply.funny": [
+      "Hunger no dey see fine face, my guy!",
+      "Lagos never ready for me!",
+      "Na you go pay the NEPA bill, abi?"
+    ],
+    "passing.reply.walk_away": ["(barely nods back)", "(keeps walking)"],
+
+    "help.umbrella.ask.friendly": [
+      "Abeg, can I stand under your umbrella small?",
+      "This rain no get joy. You fit cover me small?"
+    ],
+    "help.umbrella.ask.firm": [
+      "I need to stay dry. Share that umbrella.",
+      "Make I enter under that umbrella."
+    ],
+    "help.umbrella.ask.funny": [
+      "Your umbrella get space for one fine person?",
+      "Rain don baptise me finish. Abeg rescue me."
+    ],
+    "help.umbrella.withdraw": ["(stands in the rain rather than ask)"],
+    "help.umbrella.yes": ["Come, enter. No dey shy.", "Oya, squeeze inside."],
+    "help.umbrella.yes.funny": [
+      "Enter before you melt like sugar!",
+      "Come in, but no step on my shoe o."
+    ],
+    "help.umbrella.no.unwilling": ["Ah, e no go reach two of us.", "Sorry, I dey rush."],
+    "help.umbrella.no.declined": ["Sorry o, I no fit."],
+
+    "help.transport_money.ask.friendly": [
+      "Abeg, I no get transport money. You fit help me with {amount}? I go pay back.",
+      "My brother, I'm stranded. {amount} go do."
+    ],
+    "help.transport_money.ask.firm": [
+      "Lend me {amount} for transport. I'll pay you tomorrow.",
+      "I need {amount} for danfo. You go help?"
+    ],
+    "help.transport_money.ask.funny": [
+      "Danfo no dey collect smile. Abeg lend me {amount}!",
+      "My pocket don japa. {amount} go save my life today."
+    ],
+    "help.transport_money.withdraw": ["(decides to trek instead of asking)"],
+    "help.transport_money.yes": ["Take {amount}. Pay me when you fit.", "No wahala, collect am."],
+    "help.transport_money.yes.firm": [
+      "Take {amount}. Make sure you pay me back o.",
+      "Here. Tomorrow, I need am back."
+    ],
+    "help.transport_money.no.broke": [
+      "Me sef no get. Things hard.",
+      "I wish I fit, but my own don finish."
+    ],
+    "help.transport_money.no.unwilling": ["Ah, not today.", "I no dey lend money again, sorry."],
+    "help.transport_money.no.declined": ["Sorry, I no fit."],
+
+    "help.chop_money.ask.friendly": [
+      "Abeg, I no reach for food. You fit help me with {amount}?",
+      "Hunger dey do me. {amount} go help."
+    ],
+    "help.chop_money.ask.firm": [
+      "Lend me {amount} for food. I'll pay you.",
+      "I need {amount} to eat. Help me."
+    ],
+    "help.chop_money.ask.funny": [
+      "My stomach dey sing gospel. {amount} go make am rest!",
+      "Rice dey call my name but my pocket no gree answer."
+    ],
+    "help.chop_money.withdraw": ["(walks out hungry rather than ask)"],
+    "help.chop_money.yes": [
+      "Collect {amount}. Go chop.",
+      "Oya, take am. Make you no faint for here."
+    ],
+    "help.chop_money.yes.firm": ["Take {amount}. Pay me back.", "Here. No forget o."],
+    "help.chop_money.no.broke": ["Me sef dey manage.", "My own no reach."],
+    "help.chop_money.no.unwilling": ["Ah no, sorry.", "Not today o."],
+    "help.chop_money.no.declined": ["Sorry, I no fit."],
+
+    "help.directions.ask.friendly": [
+      "Please, how I go reach {target}?",
+      "Abeg, where {target} dey?"
+    ],
+    "help.directions.ask.firm": ["Where is {target}?", "Point me to {target}."],
+    "help.directions.ask.funny": [
+      "Lagos don confuse me finish. Where {target} dey hide?",
+      "I don waka round three times. {target}, abeg?"
+    ],
+    "help.directions.withdraw": ["(wanders off to look for it alone)"],
+    "help.directions.yes": [
+      "{target}? Follow this road, turn by the mechanic, you go see am.",
+      "Na just there. Pass the junction, e dey your left."
+    ],
+    "help.directions.no.too_tired": ["Ah, my head no dey work now. Ask another person."],
+    "help.directions.no.unwilling": ["I no too sure, ask another person.", "I no know am."],
+    "help.directions.no.declined": ["Sorry, I no fit help."],
+
+    "opportunity.ask.friendly": [
+      "You know anybody wey need hand? I fit work hard.",
+      "Abeg, if anything dey, remember me."
+    ],
+    "opportunity.ask.firm": [
+      "I need a real break. Who should I talk to?",
+      "Tell me straight: anything dey for me?"
+    ],
+    "opportunity.ask.funny": [
+      "If opportunity knock, I go open door before e finish knocking!",
+      "Abeg connect me. I go remember you when I blow."
+    ],
+    "opportunity.withdraw": ["(almost asks, then changes the subject)"],
+    "opportunity.gig_lead.yes": [
+      "Come Bluelight one evening, bring your instrument. Make we see wetin you get.",
+      "I get one slot. If you sabi play, e fit be your own."
+    ],
+    "opportunity.business_tip.yes": [
+      "One stall dey empty for Oja Tuntun. The levy dey reasonable if person vouch for you.",
+      "Stall don free for market. Move fast before dem give am out."
+    ],
+    "opportunity.job_contact.yes": [
+      "My office dey find intern. Send me your CV, I go push am.",
+      "Talk to our HR, tell dem say I send you."
+    ],
+    "opportunity.no.rival": [
+      "Ehn... I dey find the same thing. Make we see.",
+      "That one, I still dey hustle am myself."
+    ],
+    "opportunity.no.unwilling": ["I no really know you like that.", "Nothing dey for now."],
+    "opportunity.no.nothing_to_offer": ["Everything don go. Sorry."],
+    "opportunity.no.declined": ["Not now."],
+
+    "rumour.helped_me": [
+      "You hear? {subject} helped me for {place} the other day. Good person.",
+      "{subject} na better person o. Dem help me when I hook."
+    ],
+    "rumour.refused_me": [
+      "That {subject}? I ask small help for {place}, dem refuse me flat.",
+      "No go meet {subject} for help o. Dem no dey help person."
+    ],
+    "rumour.got_lead": [
+      "{subject} connect me o! Na through dem I get my break.",
+      "Make you know {subject}. Dem dey open door for people."
+    ],
+    "rumour.repaid_me": [
+      "{subject} pay back the money wey I borrow am. Honest person.",
+      "{subject} na person of word."
+    ],
+    "rumour.failed_to_repay": [
+      "{subject} still dey owe me money. Days don pass.",
+      "No lend {subject} money o. I still dey wait my own."
+    ],
+
+    "option.chat.friendly": ["Greet them warmly"],
+    "option.chat.firm": ["Keep it short and polite"],
+    "option.chat.funny": ["Crack a joke"],
+    "option.chat.walk_away": ["Nod and walk on"],
+    "option.chat.chat.repay": ["Pay back the {amount} you owe"],
+    "option.asker.friendly": ["Ask nicely"],
+    "option.asker.firm": ["Ask straight"],
+    "option.asker.funny": ["Ask with a joke"],
+    "option.asker.walk_away": ["Don't ask, walk away"],
+    "option.giver.friendly": ["Help, warmly"],
+    "option.giver.firm": ["Help, but set terms"],
+    "option.giver.funny": ["Help with a joke"],
+    "option.giver.walk_away": ["Refuse and walk away"],
+
+    "narrate.passing.chatted": ["{a} and {b} stopped to talk."],
+    "narrate.passing.brushed_off": ["{a} and {b} crossed paths, but one of them didn't stop."],
+    "narrate.help.umbrella.helped": ["{b} shared an umbrella with {a}."],
+    "narrate.help.umbrella.refused": ["{a} hoped to share {b}'s umbrella. {b} didn't make room."],
+    "narrate.help.umbrella.withdrawn": ["{a} stood in the rain beside {b} and said nothing."],
+    "narrate.help.transport_money.helped": ["{b} lent {a} {amount} for transport."],
+    "narrate.help.transport_money.refused": [
+      "{a} asked {b} for {amount} transport money. {b} said no ({reason})."
+    ],
+    "narrate.help.transport_money.withdrawn": ["{a} was stranded but too proud to ask {b}."],
+    "narrate.help.chop_money.helped": ["{b} lent {a} {amount} for food."],
+    "narrate.help.chop_money.refused": [
+      "{a} asked {b} for {amount} to eat. {b} said no ({reason})."
+    ],
+    "narrate.help.chop_money.withdrawn": ["{a} was hungry but didn't ask {b}."],
+    "narrate.help.directions.helped": ["{b} gave {a} directions to {target}."],
+    "narrate.help.directions.refused": [
+      "{a} asked {b} the way to {target}. {b} couldn't or wouldn't help ({reason})."
+    ],
+    "narrate.help.directions.withdrawn": ["{a} was lost but didn't ask {b}."],
+    "narrate.opportunity.given": ["{b} gave {a} a lead ({opportunity})."],
+    "narrate.opportunity.refused": [
+      "{a} asked {b} for a break ({opportunity}). {b} held back ({reason})."
+    ],
+    "narrate.opportunity.withdrawn": ["{a} almost asked {b} for a break, but didn't."],
+    "narrate.rumour": ["{speaker} told {listener} about {subject}."],
+    "narrate.debt_repaid": ["{a} paid {b} back {amount}."],
+    "narrate.debt_overdue": ["{a} still hasn't paid {b} back {amount}. {b} is starting to talk."],
+    "narrate.went_without.transport_money": ["{a} had no transport money and trekked."],
+    "narrate.went_without.chop_money": ["{a} couldn't afford food and went hungry."],
+    "narrate.delayed": ["{a} was held at {place} by the {weather}."],
+    "narrate.short_of_money.transport_money": ["{a} reached the park without enough for the fare."],
+    "narrate.short_of_money.chop_money": [
+      "{a} sat down to eat, then counted the money: not enough."
+    ],
+
+    "prompt.chat": ["{other} is here and catches your eye."],
+    "prompt.umbrella.asker": ["The rain is soaking you. {other} has an umbrella."],
+    "prompt.umbrella.giver": ["{other} is getting soaked beside you. You have an umbrella."],
+    "prompt.transport_money.asker": [
+      "You don't have enough for the fare. {other} is nearby. You'd need {amount}."
+    ],
+    "prompt.transport_money.giver": [
+      "{other} is stranded without transport money and is looking at you. They need {amount}."
+    ],
+    "prompt.chop_money.asker": [
+      "You can't pay for your food. {other} is here. You'd need {amount}."
+    ],
+    "prompt.chop_money.giver": [
+      "{other} can't pay for food and is looking at you. They need {amount}."
+    ],
+    "prompt.directions.asker": ["You don't know the way to {target}. {other} might."],
+    "prompt.directions.giver": ["{other} is lost, looking for {target}."],
+    "prompt.gig_lead.asker": ["{other} might know where a musician could get a stage."],
+    "prompt.business_tip.asker": ["{other} knows the market well. Maybe they know of an opening."],
+    "prompt.job_contact.asker": ["{other} works in an office. Maybe they know of a job."],
+    "prompt.giver": ["{other} is asking if you know of any openings."]
+  }
+}
