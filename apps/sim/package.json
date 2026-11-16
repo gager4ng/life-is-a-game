@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@liag/content": "workspace:*",
-    "@liag/engine": "workspace:*"
+    "@liag/engine": "workspace:*",
+    "@liag/narrative": "workspace:*"
   }
 }

@@ -134,6 +134,14 @@
       "traits": ["talented", "curious", "warm"],
       "items": [],
       "start": { "energy": 85, "money": 1200, "mood": 60 },
+      "look": {
+        "skin": 3,
+        "build": "slim",
+        "hair": "twists",
+        "headwear": "none",
+        "outfit": "tshirt",
+        "colors": { "top": "#e85d3a", "bottom": "#2f3b52", "accent": "#f2c94c" }
+      },
       "knownLocations": ["loc_yaba_park"],
       "routine": {
         "weekday": [
@@ -208,6 +216,14 @@
       "traits": ["ambitious", "warm", "competitive", "talkative"],
       "items": [],
       "start": { "energy": 80, "money": 9000, "mood": 62 },
+      "look": {
+        "skin": 2,
+        "build": "slim",
+        "hair": "braids",
+        "headwear": "none",
+        "outfit": "dress",
+        "colors": { "top": "#7b4bd6", "bottom": "#7b4bd6", "accent": "#ffffff" }
+      },
       "knownLocations": ["loc_yaba_park", "loc_yaba_market", "loc_yaba_livespot"],
       "routine": {
         "weekday": [
@@ -281,6 +297,14 @@
       "traits": ["shrewd", "generous", "talkative", "early_riser"],
       "items": ["umbrella"],
       "start": { "energy": 80, "money": 60000, "mood": 60 },
+      "look": {
+        "skin": 4,
+        "build": "broad",
+        "hair": "bun",
+        "headwear": "gele",
+        "outfit": "blouse_wrapper",
+        "colors": { "top": "#f2994a", "bottom": "#1f7a4d", "accent": "#f2c94c" }
+      },
       "knownLocations": ["loc_yaba_buka", "loc_yaba_park"],
       "routine": {
         "weekday": [
@@ -340,6 +364,14 @@
       "traits": ["playful", "hot_tempered", "sociable", "football_fan"],
       "items": [],
       "start": { "energy": 80, "money": 2500, "mood": 58 },
+      "look": {
+        "skin": 4,
+        "build": "average",
+        "hair": "low_cut",
+        "headwear": "cap",
+        "outfit": "tshirt",
+        "colors": { "top": "#f5c518", "bottom": "#3a3a3a", "accent": "#111111" }
+      },
       "knownLocations": ["loc_yaba_buka", "loc_yaba_market", "loc_yaba_livespot"],
       "routine": {
         "weekday": [
@@ -391,6 +423,14 @@
       "traits": ["no_nonsense", "shrewd", "sociable"],
       "items": ["umbrella"],
       "start": { "energy": 80, "money": 120000, "mood": 60 },
+      "look": {
+        "skin": 5,
+        "build": "broad",
+        "hair": "bald",
+        "headwear": "fila",
+        "outfit": "kaftan",
+        "colors": { "top": "#3b5ba5", "bottom": "#3b5ba5", "accent": "#d9b44a" }
+      },
       "knownLocations": ["loc_yaba_buka", "loc_yaba_market", "loc_yaba_park"],
       "routine": {
         "weekday": [
@@ -434,6 +474,14 @@
       "traits": ["curious", "shy", "prepared"],
       "items": ["umbrella"],
       "start": { "energy": 80, "money": 15000, "mood": 60 },
+      "look": {
+        "skin": 2,
+        "build": "slim",
+        "hair": "afro",
+        "headwear": "none",
+        "outfit": "shirt",
+        "colors": { "top": "#2d9cdb", "bottom": "#27304a", "accent": "#ff7eb6" }
+      },
       "knownLocations": ["loc_yaba_poly", "loc_yaba_park", "loc_yaba_market"],
       "routine": {
         "weekday": [
@@ -500,6 +548,14 @@
       "traits": ["shrewd", "early_riser", "prepared", "sociable"],
       "items": ["umbrella"],
       "start": { "energy": 80, "money": 40000, "mood": 60 },
+      "look": {
+        "skin": 3,
+        "build": "average",
+        "hair": "low_cut",
+        "headwear": "fila",
+        "outfit": "kaftan",
+        "colors": { "top": "#f2f2f2", "bottom": "#f2f2f2", "accent": "#1f7a4d" }
+      },
       "knownLocations": ["loc_yaba_buka", "loc_yaba_market"],
       "routine": {
         "weekday": [
@@ -549,6 +605,14 @@
       "traits": ["prepared", "generous", "no_nonsense"],
       "items": ["umbrella"],
       "start": { "energy": 80, "money": 80000, "mood": 60 },
+      "look": {
+        "skin": 2,
+        "build": "slim",
+        "hair": "bun",
+        "headwear": "none",
+        "outfit": "suit",
+        "colors": { "top": "#2c3e50", "bottom": "#2c3e50", "accent": "#e0e0e0" }
+      },
       "knownLocations": ["loc_yaba_park", "loc_yaba_buka", "loc_yaba_market", "loc_yaba_livespot"],
       "routine": {
         "weekday": [
@@ -622,6 +686,14 @@
       "traits": ["warm", "generous", "talkative", "football_fan"],
       "items": [],
       "start": { "energy": 80, "money": 70000, "mood": 62 },
+      "look": {
+        "skin": 4,
+        "build": "broad",
+        "hair": "bun",
+        "headwear": "headscarf",
+        "outfit": "blouse_wrapper",
+        "colors": { "top": "#eb5757", "bottom": "#f2c94c", "accent": "#ffffff" }
+      },
       "knownLocations": ["loc_yaba_market", "loc_yaba_park"],
       "routine": {
         "weekday": [
@@ -671,6 +743,14 @@
       "traits": ["football_fan", "playful", "stingy"],
       "items": [],
       "start": { "energy": 80, "money": 900, "mood": 55 },
+      "look": {
+        "skin": 3,
+        "build": "average",
+        "hair": "afro",
+        "headwear": "none",
+        "outfit": "tshirt",
+        "colors": { "top": "#27ae60", "bottom": "#4f4f4f", "accent": "#f2f2f2" }
+      },
       "knownLocations": ["loc_yaba_buka", "loc_yaba_park", "loc_yaba_livespot"],
       "routine": {
         "weekday": [
@@ -718,6 +798,14 @@
       "traits": ["shy", "proud", "early_riser"],
       "items": ["umbrella"],
       "start": { "energy": 80, "money": 12000, "mood": 55 },
+      "look": {
+        "skin": 4,
+        "build": "slim",
+        "hair": "low_cut",
+        "headwear": "none",
+        "outfit": "shirt",
+        "colors": { "top": "#bb6bd9", "bottom": "#333333", "accent": "#f2c94c" }
+      },
       "knownLocations": ["loc_yaba_buka", "loc_yaba_park"],
       "routine": {
         "weekday": [

@@ -16,7 +16,7 @@ import type {
   World,
 } from "./types";
 import { uniq } from "./util";
-import { getChar, getLocation, getQuestDef, isOpen } from "./world";
+import { getChar, getLocation, getQuestDef, isAt, isOpen } from "./world";
 
 const KIND_ORDER = { main: 0, side: 1, emergent: 2 } as const;
 const MAX_TRANSITIONS_PER_TICK = 6;
@@ -304,7 +304,7 @@ export function autopilotIntent(world: World, playerId: string): void {
   for (const inst of active) {
     if (world.tick < inst.nextAttemptTick) continue;
     const target = questTarget(world, inst);
-    if (!target || target.locationId === c.locationId) continue;
+    if (!target || isAt(c, target.locationId)) continue;
     if (target.window && !isWithin(minute, target.window[0], target.window[1])) continue;
     const loc = getLocation(world, target.locationId);
     if (!isOpen(loc, minute)) continue;

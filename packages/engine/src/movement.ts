@@ -1,7 +1,9 @@
-import type { LocationDef } from "./content-types";
+import type { LocationDef, Tile } from "./content-types";
 import { available, askAmount, currentPrices } from "./economy";
 import { adjustEnergy, adjustMood, openSink } from "./effects";
 import { appendEvent } from "./ledger";
+import type { Endpoint } from "./map";
+import { journey, positionOnJourney, sameTile } from "./map";
 import { segmentAt } from "./planning";
 import { chance, intBetween } from "./rng";
 import { TICK_MINUTES, isNight, minuteOfDay } from "./time";
@@ -13,7 +15,9 @@ import {
   getLocation,
   hasItem,
   hasTrait,
+  isAt,
   isOpen,
+  isPresent,
   occupants,
   sortedCharacterIds,
 } from "./world";
@@ -28,6 +32,8 @@ export const EATING_ACTIVITIES: ReadonlySet<string> = new Set([
 
 interface Desire {
   locationId: string;
+  /** Set when the target is a spot on the street rather than a place. */
+  tile: Tile | null;
   activity: string;
   causes: string[];
   source: string;
@@ -43,6 +49,7 @@ function desire(world: World, c: CharacterState, minute: number): Desire | null 
     if (world.tick < c.override.untilTick) {
       return {
         locationId: c.override.locationId,
+        tile: c.override.tile ?? null,
         activity: c.override.activity,
         causes: [c.override.eventId],
         source: "player",
@@ -59,6 +66,7 @@ function desire(world: World, c: CharacterState, minute: number): Desire | null 
   }
   return {
     locationId: seg.locationId,
+    tile: null,
     activity: seg.activity,
     causes,
     source: seg.source,
@@ -66,22 +74,54 @@ function desire(world: World, c: CharacterState, minute: number): Desire | null 
   };
 }
 
-/** Each tick: everyone heads where their plan (or their player) says, unless something stops them. */
+function targetKey(want: Desire): string {
+  return want.tile ? `street:${want.tile[0]},${want.tile[1]}` : want.locationId;
+}
+
+function endpointOf(want: Desire): Endpoint {
+  return want.tile ? { tile: [want.tile[0], want.tile[1]] } : { locationId: want.locationId };
+}
+
+function sameTarget(to: Endpoint, want: Desire): boolean {
+  if ("tile" in to) return want.tile !== null && sameTile(to.tile, want.tile);
+  return want.tile === null && to.locationId === want.locationId;
+}
+
+/**
+ * Each tick: everyone heads where their plan (or their player) says, unless something stops
+ * them. Getting there takes time: the walk along the streets (plus any danfo ride), counted
+ * in whole ticks. On the way they are at no place, so they meet nobody until they arrive.
+ */
 export function moveCharacters(world: World): void {
   const minute = minuteOfDay(world.tick);
   for (const id of sortedCharacterIds(world)) {
     const c = getChar(world, id);
     if (inEncounter(world, id)) continue;
+    if (c.travel) {
+      if (world.tick >= c.travel.arriveTick) arrive(world, c);
+      else if (c.controlledBy) redirect(world, c, minute);
+      continue;
+    }
     const want = desire(world, c, minute);
     if (!want) continue;
-    if (want.locationId === c.locationId) {
+    if (want.tile) {
+      if (sameTile(c.street, want.tile)) {
+        c.activity = want.activity;
+        c.delay = null;
+        continue;
+      }
+      if (rainHoldsBack(world, c, want, minute)) continue;
+      depart(world, c, want);
+      continue;
+    }
+    if (want.locationId === c.locationId && isPresent(c)) {
       c.activity = want.activity;
       c.seeking = null;
       c.delay = null;
       continue;
     }
     if (!c.knownLocations[want.locationId]) {
-      // They want to go somewhere they can't find: they'll ask around (directions).
+      // They want to go somewhere they can not find: they will ask around (directions).
       c.seeking = { locationId: want.locationId, causeId: want.causes[0]! };
       continue;
     }
@@ -90,30 +130,109 @@ export function moveCharacters(world: World): void {
     if (!isOpen(dest, minute)) continue;
     if (occupants(world, dest.id).length >= dest.capacity) continue;
     if (rainHoldsBack(world, c, want, minute)) continue;
+    if (c.shortOf && c.shortOf.locationId === c.locationId && isPresent(c)) wentWithout(world, c);
+    depart(world, c, want);
+  }
+}
 
-    if (c.shortOf && c.shortOf.locationId === c.locationId) wentWithout(world, c);
-    const from = c.locationId;
-    const causes = [...want.causes];
-    if (c.delay?.eventId) causes.push(c.delay.eventId);
+/** Set off. Nothing is ledgered yet: the arrival records the trip and why it was made. */
+function depart(world: World, c: CharacterState, want: Desire): void {
+  const from: Endpoint = c.street ? { tile: c.street } : { locationId: c.locationId };
+  const to = endpointOf(want);
+  const j = journey(world.content, c.regionId, from, to);
+  const causes = [...want.causes];
+  if (c.delay?.eventId) causes.push(c.delay.eventId);
+  c.delay = null;
+  c.street = null;
+  c.travel = {
+    from,
+    to,
+    departTick: world.tick,
+    arriveTick: world.tick + j.ticks,
+    activity: want.activity,
+    causes,
+    source: want.source,
+    sourceId: want.sourceId,
+  };
+  c.activity = "travel";
+  if (j.ticks === 0) arrive(world, c);
+}
+
+function arrive(world: World, c: CharacterState): void {
+  const t = c.travel!;
+  const from = "locationId" in t.from ? t.from.locationId : "street";
+  const data = {
+    from,
+    activity: t.activity,
+    source: t.source,
+    sourceId: t.sourceId,
+    departedTick: t.departTick,
+    minutes: (world.tick - t.departTick) * TICK_MINUTES,
+  };
+  if ("tile" in t.to) {
     const ev = appendEvent(world, {
       type: "arrived",
-      actors: [id],
-      location: dest.id,
-      causes,
-      effects: [{ kind: "location", who: id, from, to: dest.id }],
-      data: { from, activity: want.activity, source: want.source, sourceId: want.sourceId },
+      actors: [c.id],
+      location: null,
+      causes: t.causes,
+      data: { ...data, street: [t.to.tile[0], t.to.tile[1]] },
     });
-    c.locationId = dest.id;
-    c.activity = want.activity;
+    c.street = [t.to.tile[0], t.to.tile[1]];
+    c.activity = t.activity;
     c.arrivalEventId = ev.id;
-    c.delay = null;
-    onArrive(world, c, dest);
+    c.travel = null;
+    return;
   }
+  const dest = getLocation(world, t.to.locationId);
+  if (occupants(world, dest.id).length >= dest.capacity) {
+    t.arriveTick = world.tick + 1; // full: wait outside a little
+    return;
+  }
+  const ev = appendEvent(world, {
+    type: "arrived",
+    actors: [c.id],
+    location: dest.id,
+    causes: t.causes,
+    effects: [{ kind: "location", who: c.id, from, to: dest.id }],
+    data,
+  });
+  c.locationId = dest.id;
+  c.activity = t.activity;
+  c.arrivalEventId = ev.id;
+  c.travel = null;
+  onArrive(world, c, dest);
+}
+
+/** Where a traveller is right now, as the nearest path tile (null while riding off-map). */
+export function travelTile(world: World, c: CharacterState): Tile | null {
+  const t = c.travel;
+  if (!t) return null;
+  const j = journey(world.content, c.regionId, t.from, t.to);
+  const span = Math.max(1, t.arriveTick - t.departTick);
+  const pos = positionOnJourney(j, ((world.tick - t.departTick) / span) * j.totalMinutes);
+  if (!pos) return null;
+  return [Math.round(pos.x), Math.round(pos.y)];
+}
+
+/** A player changed their mind on the way: turn round from wherever they are now. */
+function redirect(world: World, c: CharacterState, minute: number): void {
+  const want = desire(world, c, minute);
+  if (!want || sameTarget(c.travel!.to, want)) return;
+  if (!want.tile) {
+    if (!c.knownLocations[want.locationId]) return;
+    if (!isOpen(getLocation(world, want.locationId), minute)) return;
+  }
+  const here = travelTile(world, c);
+  if (!here) return; // on a danfo: they can only change plans once they get off
+  c.travel = null;
+  c.street = here;
+  depart(world, c, want);
 }
 
 /** Rain keeps people where they are for a while: heavy rain almost always, light rain sometimes. */
 function rainHoldsBack(world: World, c: CharacterState, want: Desire, minute: number): boolean {
-  if (c.delay && c.delay.forLocation === want.locationId) {
+  const key = targetKey(want);
+  if (c.delay && c.delay.forLocation === key) {
     return world.tick < c.delay.untilTick;
   }
   c.delay = null;
@@ -125,26 +244,27 @@ function rainHoldsBack(world: World, c: CharacterState, want: Desire, minute: nu
   const p = heavy ? (umbrella ? 0.6 : 0.85) : umbrella ? 0.1 : 0.5;
   const end = rainEndsAt(st.day, minute) ?? minute + TICK_MINUTES;
   if (!chance(world.rng, p)) {
-    c.delay = { forLocation: want.locationId, untilTick: world.tick, eventId: null };
+    c.delay = { forLocation: key, untilTick: world.tick, eventId: null };
     return false;
   }
   const ticks = heavy
     ? clamp(Math.ceil((end - minute) / TICK_MINUTES), 1, 6)
     : intBetween(world.rng, 1, 3);
+  const present = isPresent(c);
   const here = getLocation(world, c.locationId);
   const ev = appendEvent(world, {
     type: "delayed",
     actors: [c.id],
-    location: c.locationId,
+    location: present ? c.locationId : null,
     causes: [st.eventId, ...want.causes],
     data: {
       weather: w,
-      wanted: want.locationId,
+      wanted: want.tile ? null : want.locationId,
       minutes: ticks * TICK_MINUTES,
-      noDanfo: here.type === "transport_hub",
+      noDanfo: present && here.type === "transport_hub",
     },
   });
-  c.delay = { forLocation: want.locationId, untilTick: world.tick + ticks, eventId: ev.id };
+  c.delay = { forLocation: key, untilTick: world.tick + ticks, eventId: ev.id };
   return true;
 }
 
@@ -206,14 +326,14 @@ export function updateNeeds(world: World): void {
   const minute = minuteOfDay(world.tick);
   for (const id of sortedCharacterIds(world)) {
     const c = getChar(world, id);
-    const loc = getLocation(world, c.locationId);
+    const outdoor = !isPresent(c) || getLocation(world, c.locationId).outdoor;
     const sleeping = c.activity === "sleep";
     let energy = c.needs.energy;
     let mood = c.needs.mood;
     if (sleeping) energy += 1.8;
     else energy -= hasTrait(c, "night_owl") && isNight(minute) ? 0.3 : 0.5;
     const w = currentWeather(world, c.regionId);
-    if (loc.outdoor && !sleeping) {
+    if (outdoor && !sleeping) {
       if (isRain(w) && !hasItem(c, "umbrella") && c.shelteredUntil <= world.tick) {
         mood -= w === "heavy_rain" ? 0.8 : 0.4;
       } else if (w === "harmattan") mood -= 0.1;
@@ -221,6 +341,6 @@ export function updateNeeds(world: World): void {
     mood += (55 - mood) * 0.01;
     c.needs.energy = round2(clamp(energy, 0, 100));
     c.needs.mood = round2(clamp(mood, 0, 100));
-    if (c.workplaceId === c.locationId && c.activity === "work") c.today.ticksWorked += 1;
+    if (c.workplaceId && isAt(c, c.workplaceId) && c.activity === "work") c.today.ticksWorked += 1;
   }
 }

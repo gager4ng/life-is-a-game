@@ -1,6 +1,10 @@
 import { z } from "zod";
 import {
+  HAIRSTYLES,
+  HEADWEAR,
   LOCATION_TYPES,
+  OUTFITS,
+  SKIN_TONES,
   OPPORTUNITY_KINDS,
   REL_DIMS,
   TRAITS,
@@ -68,6 +72,21 @@ const VariationSchema = z.object({
   activity: z.string(),
 });
 
+const color = z.string().regex(/^#[0-9a-f]{6}$/i, "expected #rrggbb");
+
+export const LookSchema = z.object({
+  skin: z
+    .number()
+    .int()
+    .min(0)
+    .max(SKIN_TONES - 1),
+  build: z.enum(["slim", "average", "broad"]),
+  hair: z.enum(HAIRSTYLES),
+  headwear: z.enum(HEADWEAR),
+  outfit: z.enum(OUTFITS),
+  colors: z.object({ top: color, bottom: color, accent: color }),
+});
+
 export const CharacterSchema = z.object({
   id,
   name: z.string(),
@@ -90,6 +109,7 @@ export const CharacterSchema = z.object({
     mood: z.number().min(0).max(100),
   }),
   knownLocations: z.array(id),
+  look: LookSchema.optional(),
   routine: z.object({
     weekday: z.array(SlotSchema).min(1),
     weekend: z.array(SlotSchema).min(1),
@@ -251,6 +271,40 @@ export const WorldEventSchema = z.object({
   crowdBoost: z.array(z.object({ locationId: id, factor: z.number().positive() })).optional(),
 });
 
+const tile = z.tuple([z.number().int().min(0), z.number().int().min(0)]);
+const rect = {
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  w: z.number().int().positive(),
+  h: z.number().int().positive(),
+};
+
+/**
+ * A region's street grid (hand-made for now). Tile codes: s sidewalk, z zebra crossing,
+ * p paved yard, g grass, R road, # building lot, ~ water.
+ */
+export const MapFileSchema = z.object({
+  $meta: MetaSchema,
+  regionId: id,
+  minutesPerTile: z.number().positive(),
+  tiles: z.array(z.string().regex(/^[szpgR#~]+$/, "unknown tile code")).min(1),
+  places: z.array(
+    z.object({
+      locationId: id,
+      ...rect,
+      door: tile,
+      building: z.object(rect).optional(),
+    }),
+  ),
+  offMap: z.array(z.object({ locationId: id, via: id, rideMinutes: z.number().positive() })),
+});
+
+/** Interface wording for the browser client (buttons, labels). Placeholder until approved. */
+export const UiTextFileSchema = z.object({
+  $meta: MetaSchema,
+  text: z.record(z.string(), z.string()),
+});
+
 /** One region's data: drop a new file like this in to add Abuja, Port Harcourt or Kano. */
 export const RegionPackSchema = z.object({
   $meta: MetaSchema,
@@ -273,4 +327,5 @@ export const DialogueFileSchema = z.object({
 });
 
 export type RegionPack = z.infer<typeof RegionPackSchema>;
+export type MapFile = z.infer<typeof MapFileSchema>;
 export type DialogueFile = z.infer<typeof DialogueFileSchema>;

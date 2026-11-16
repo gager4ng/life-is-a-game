@@ -23,12 +23,16 @@ This repo is separate from Gist365. Design reference: the owner's design doc v1.
   (enforced by ESLint and by `types: []` in its tsconfig). Runs unchanged in a browser or on a server.
 - `packages/content`: zod-validated JSON data (regions, locations, characters, quests, world
   events, placeholder dialogue). New regions are data only.
+- `packages/narrative`: turns ledger events into text (journal, Gist feed); shared by both apps.
 - `apps/sim`: the CLI (`pnpm sim …`) that runs the world and prints a journal.
+- `apps/web`: the browser prototype (Vite + PixiJS 8). Everything is drawn in code: no image
+  files. Placeholder UI wording lives in `packages/content/src/ui/web.json`.
 
 ## Commands
 
 `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build` · `pnpm format` ·
-`pnpm sim --seed 42 --days 3` · `pnpm sim --seed 42 --interactive`
+`pnpm sim --seed 42 --days 3` · `pnpm sim --seed 42 --interactive` · `pnpm dev` (`--host` for
+the phone) · `pnpm e2e` (one Playwright smoke test, 1 worker; `SHOTS=1` retakes screenshots)
 
 ## Engine invariants (keep them true)
 
@@ -37,3 +41,4 @@ This repo is separate from Gist365. Design reference: the owner's design doc v1.
 - Money and relationships change only through ledgered effects (tests replay them).
 - Relationship dimensions stay within bounds; money never goes negative.
 - Chance is rolled only after rules say a thing is believable.
+- Travel takes time along the street grid; people on the way are at no place (G-013).

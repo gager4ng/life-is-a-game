@@ -24,3 +24,7 @@ jobs:
       - run: pnpm build
       - name: Smoke-run the simulation
         run: node apps/sim/dist/cli.js --seed 42 --days 3 > /dev/null
+      - name: Browser smoke test (Chromium, 1 worker)
+        run: |
+          pnpm --filter @liag/web exec playwright install --with-deps chromium
+          pnpm e2e

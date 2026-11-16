@@ -1,4 +1,5 @@
 import type { Condition, ContentBundle } from "./content-types";
+import { WALK_COST, findPath, isWalkable, placeTile } from "./map";
 import { parseHHMM } from "./time";
 
 /**
@@ -61,6 +62,39 @@ export function validateContentRefs(c: ContentBundle): string[] {
       time(l.hours.close, `location ${l.id}`);
     }
     if (l.capacity < 1) errs.push(`location ${l.id}: capacity must be >= 1`);
+  }
+
+  for (const m of c.maps ?? []) {
+    const w = `map ${m.regionId}`;
+    if (!regions.has(m.regionId)) errs.push(`${w}: unknown region`);
+    const width = m.tiles[0]?.length ?? 0;
+    if (width === 0) errs.push(`${w}: no tiles`);
+    if (m.tiles.some((r) => r.length !== width)) errs.push(`${w}: rows must be the same length`);
+    if (m.tiles.some((r) => /[^szpgR#~]/.test(r))) errs.push(`${w}: unknown tile code`);
+    if (!(m.minutesPerTile > 0)) errs.push(`${w}: minutesPerTile must be > 0`);
+    for (const p of m.places) {
+      const l = locs.get(p.locationId);
+      if (!l || l.regionId !== m.regionId) errs.push(`${w}: place ${p.locationId} not in region`);
+      if (!isWalkable(m, p.door)) errs.push(`${w}: door of ${p.locationId} is not walkable`);
+    }
+    for (const o of m.offMap) {
+      const l = locs.get(o.locationId);
+      if (!l || l.regionId !== m.regionId) errs.push(`${w}: off-map ${o.locationId} not in region`);
+      if (!m.places.some((p) => p.locationId === o.via))
+        errs.push(`${w}: off-map ${o.locationId} rides from ${o.via}, which is not on the map`);
+      if (!(o.rideMinutes > 0)) errs.push(`${w}: off-map ${o.locationId} needs rideMinutes > 0`);
+    }
+    const inRegion = c.locations.filter((l) => l.regionId === m.regionId);
+    const first = m.places[0];
+    for (const l of inRegion) {
+      const t = placeTile(m, l.id);
+      if (!t) {
+        errs.push(`${w}: location ${l.id} has no place on the map`);
+        continue;
+      }
+      if (first && isWalkable(m, t) && !findPath(m, first.door, t, WALK_COST))
+        errs.push(`${w}: ${l.id} can't be reached on foot`);
+    }
   }
 
   const locRef = (ref: string, where: string, regionId: string, hasJob: boolean): void => {

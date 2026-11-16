@@ -29,6 +29,7 @@ export const DEFAULT_START_DATE = "2026-06-01";
 export function createWorld(content: ContentBundle, opts: CreateWorldOptions): World {
   const bundle: ContentBundle = {
     ...content,
+    maps: content.maps ?? [],
     worldEvents: opts.worldEvents ?? content.worldEvents,
   };
   const errors = validateContentRefs(bundle);
@@ -127,6 +128,8 @@ function initialCharacter(def: CharacterDef, rootId: string): CharacterState {
     locationId: def.homeId,
     activity: "sleep",
     arrivalEventId: rootId,
+    travel: null,
+    street: null,
     needs: { ...def.start },
     lastMoneyEventId: rootId,
     memories: [],
@@ -206,10 +209,20 @@ export function isOpen(loc: LocationDef, minute: number): boolean {
   return open < close ? minute >= open && minute < close : minute >= open || minute < close;
 }
 
+/** At a place right now: not on the way somewhere, not out on the street. */
+export function isPresent(c: CharacterState): boolean {
+  return c.travel === null && c.street === null;
+}
+
+/** Is this character at that place right now? */
+export function isAt(c: CharacterState, locationId: string): boolean {
+  return c.locationId === locationId && isPresent(c);
+}
+
 export function occupants(world: World, locationId: string): CharacterState[] {
   return sortedCharacterIds(world)
     .map((id) => world.characters[id]!)
-    .filter((c) => c.locationId === locationId);
+    .filter((c) => isAt(c, locationId));
 }
 
 export function hasItem(c: CharacterState, item: string): boolean {

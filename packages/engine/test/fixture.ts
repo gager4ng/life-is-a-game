@@ -1,4 +1,10 @@
-import type { CharacterDef, ContentBundle, QuestDef, RegionDef } from "../src/content-types";
+import type {
+  CharacterDef,
+  ContentBundle,
+  QuestDef,
+  RegionDef,
+  RegionMap,
+} from "../src/content-types";
 
 /**
  * A tiny, fully controlled world for unit tests. Two regions on purpose: the second one is
@@ -151,9 +157,35 @@ export const QUESTS: QuestDef[] = [
   },
 ];
 
+/**
+ * Testville's street grid. Doors: home (1,3), buka (5,1), park (9,3), venue (5,5).
+ * Home to park is 8 tiles = 20 minutes = 2 ticks; home to buka is 6 tiles = 15 min = 2 ticks.
+ */
+export const TESTVILLE_MAP: RegionMap = {
+  regionId: "testville",
+  minutesPerTile: 2.5,
+  tiles: [
+    "###########",
+    "#sssssssss#",
+    "#s###R###s#",
+    "#sssssssss#",
+    "#s###s###s#",
+    "#sssssssss#",
+    "###########",
+  ],
+  places: [
+    { locationId: "t_home", x: 2, y: 2, w: 3, h: 1, door: [1, 3] },
+    { locationId: "t_buka", x: 6, y: 0, w: 3, h: 1, door: [5, 1] },
+    { locationId: "t_park", x: 6, y: 2, w: 3, h: 1, door: [9, 3] },
+    { locationId: "t_venue", x: 6, y: 4, w: 3, h: 1, door: [5, 5] },
+  ],
+  offMap: [],
+};
+
 export function fixture(opts: { wet?: boolean } = {}): ContentBundle {
   return {
     regions: [region("testville", opts.wet ? wetAllYear : dryAllYear), region("otherland")],
+    maps: [JSON.parse(JSON.stringify(TESTVILLE_MAP)) as RegionMap],
     locations: [
       {
         id: "t_home",

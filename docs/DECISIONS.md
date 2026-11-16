@@ -198,4 +198,156 @@ Each decision has an ID (G-001, G-002, …). Newest at the bottom.
   June is wet, so rain-driven collisions show up in short runs. `--start 2026-12-07` gives
   harmattan days instead.
 
-<!-- Next free ID: G-013 -->
+## G-013: Travel takes time, on a street grid
+
+**Date:** 2026-11-16 · **Status:** accepted · Roadmap step 2
+
+- Each region may have a street grid (`packages/content/src/regions/<region>/map.json`): rows of tile
+  codes (sidewalk, zebra crossing, yard, grass, road, building lot, water), where each place sits
+  (its area, its roofed part, its door tile) and which places are off the map (the Island office is
+  reached by a 50-minute danfo ride from the park). Yaba is hand-made for now, 44 × 36 tiles; an
+  OpenStreetMap import can replace the data later without engine changes.
+- Path-finding lives in the engine (`map.ts`): a deterministic Dijkstra over 4-way steps. Walking
+  costs 1 on sidewalks, crossings and yards, 2 on grass and 6 on the road, so people keep to the
+  pavement and cross at the zebras. Equal-cost ties always break the same way. The browser uses
+  the very same paths to draw people walking.
+- Trip time = path length × `minutesPerTile` (0.6 for Yaba) plus any ride, rounded up to whole
+  10-minute ticks (at least one). A region without a map has fixed 10-minute trips, so a new
+  region still works as data only.
+- People on the way are at no place: they can't meet anyone, and they don't count towards
+  capacity. Setting off is not ledgered. The `arrived` event records where from, when they left
+  and how many minutes it took, and cites the plan or choice that sent them (plus any rain delay),
+  so traceability is unchanged.
+- Players can also walk to a spot on the street (any walkable tile). They stand there, outside
+  every place, until their choice runs out, then go back to their routine. A player who changes
+  their mind mid-walk turns round from the nearest path tile; on a danfo they can't get off until
+  it arrives.
+- Rain still holds people back before they set off. Walking in the open counts as outdoors for
+  getting wet.
+- The world shape changed, so the save version is now 2. G-001 saves are rejected with a clear
+  message.
+- Tests: path-finding (sidewalks over roads, determinism, blocked tiles), trip length to ticks,
+  off-map rides, no meetings while travelling, street spots and changing course, and a
+  determinism check with travel and street choices. All G-001 tests still pass unchanged,
+  including the 30-day soak and the byte-identical determinism checks.
+
+## G-014: Browser prototype stack
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- `apps/web`: Vite 8 + TypeScript + PixiJS 8 (WebGL). The engine, content and narrative packages
+  run unchanged in the page; there is no server.
+- `pnpm dev` serves it on port 5173. `pnpm dev --host` also serves it on the local network so a
+  phone on the same Wi-Fi can open it. Vite prints the `Network:` URL.
+- One save slot in `localStorage` (`liag:save:v2`): autosaved every game hour, after each
+  encounter and when the tab is hidden. The title screen offers Continue (if there is a save) and
+  New game (which asks before overwriting). A save is the whole world, about 80 KB per game day,
+  so the browser's roughly 5 MB limit allows about two months of play. If saving fails (private
+  mode, quota) the game carries on unsaved.
+- New games use a random seed. `?seed=N` in the URL fixes it (tests and screenshots use this).
+- `window.__liag` exposes a few test hooks (state, run until an encounter, jump ahead on
+  autopilot). They are used by the Playwright tests.
+
+## G-015: Drawing the city in code
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- No image files and no third-party assets. No CC0 assets were needed. Everything is Pixi
+  `Graphics` (polygons, ellipses, rects) or inline SVG for the HUD weather icons.
+- Isometric 64 × 32 tiles. The ground is one `Graphics` in its own render group, built once.
+  Buildings are cut into one-tile columns, and every column on the same diagonal (x + y) shares
+  one `Graphics`. That gives exact back-to-front order with people and vehicles slotted in between
+  diagonals, using about 80 static objects for the whole district. That keeps draw calls low.
+- Filler buildings are cut from every remaining lot by a seeded hash: plot sizes, 1–4 floors,
+  painted walls, zinc or flat roofs, water tanks, AC units and shop signboards (only on sides that
+  face a street). Places get their own look: buka (canopy, benches, cooking pots), market (stalls
+  with umbrellas), danfo park (parked yellow danfos, shelter, a conductor waving people in), live
+  spot (stage, speakers, coloured lights that swing at night), polytechnic (fence, gate pillars,
+  arch sign, flag) and compounds (walled yard, gate, clothesline, chair).
+- Day/night and weather come from the engine clock and weather. Night and rain tint the scene
+  darker. Lit windows, shop fronts, lamps and stage lights sit in separate layers that fade in, so
+  nothing is redrawn as the light changes. Rain is a pool of sprites sharing one texture, and
+  harmattan is a dusty haze.
+- People are layered (skin tone, build, hairstyle, outfit, gele/cap/fila/headscarf, colours) with
+  front and back views, an idle frame and four walk frames, all pre-built once per look. Left-facing
+  directions mirror the right-facing ones. Each character's look is data in the content
+  (`look` on the character, never read by the simulation).
+- Background traffic (danfos, keke, okada keeping right on the roads) and passers-by are
+  decoration with their own seeded random stream. The engine never sees them. They thin out at
+  night and in rain.
+- Resolution is capped at 2× device pixels.
+- **Measured:** our per-frame JavaScript is about 0.4 ms. With the laptop's integrated GPU
+  (Chromium, Pixel 7 viewport) it holds 60 fps even with the CPU slowed 6×. Headless Chromium on
+  a software GPU manages only about 10 fps, which is a limit of the software renderer, not of the
+  scene. **Not yet checked on a real mid-range Android phone.**
+
+## G-016: Continuous game time
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- 1x = one engine tick (10 game minutes) every 5 real seconds. There are also pause, 2x and 4x.
+  At most one tick runs per frame, and long frames (a tab in the background) don't cause a burst.
+- Between ticks, walkers are placed by how far the clock has run towards the next tick, so
+  movement is smooth while the simulation stays in whole ticks.
+- The clock stops by itself whenever the engine is waiting for the player's reply, and resumes
+  when the result card is closed.
+- A tap to move takes effect at the next tick (up to 5 s at 1x). A flag marks the destination
+  straight away.
+
+## G-017: Encounters on screen
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- When the engine starts an encounter that needs Tobi's reply, the view switches to a side-on
+  street scene drawn in code. The backdrop is the place (buka front with pots, market stalls, a
+  danfo, the stage, the polytechnic gate, a compound, the office, or plain shops), lit for the time
+  of day.
+- Both people are drawn large, facing each other, with four expressions (neutral, happy, annoyed,
+  surprised). The faces after the reply follow the outcome from the ledger: pleased when it went
+  well, the one turned down annoyed, surprise when someone walks off.
+- A caption says what is going on (the same placeholder prompt keys as the CLI). 2–4 large reply
+  buttons come from the engine's options. After the reply, the lines appear as speech bubbles
+  (tap to skip). Then a result card says what changed, built from the ledger effects as seen from
+  Tobi ("Uncle Tunde trusts you more", "+₦15,000", "You now know the way to …") plus any quest
+  progress.
+- Encounters between other people near Tobi show their first lines as small bubbles over their
+  heads in the city. Everything also lands in the Gist feed with its "why".
+
+## G-018: Placeholder wording in the browser
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- Interface labels (buttons, HUD words, result phrases, feelings) live in
+  `packages/content/src/ui/web.json`, marked `PLACEHOLDER` like every other content file.
+- Speech, prompts and gist lines carry the `[PH]` prefix, exactly as in the CLI. Shorter labels
+  are covered by a permanent "[PH] Placeholder text" badge on screen and on the title page.
+  Writing [PH] on every button would make the prototype hard to use.
+- Place names, character names and looks, and quest objectives come from the existing
+  placeholder content.
+
+## G-019: Shared narrative package
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- The journal and text rendering moved from `apps/sim` to `packages/narrative` (`@liag/narrative`)
+  so the CLI and the browser read the ledger the same way. It adds structured gist entries
+  (headline, lines, why, what changed) for the browser's feed, and a currency option (`N` in the
+  terminal, `₦` in the browser). The CLI output is unchanged, apart from arrivals now saying how
+  long the trip took.
+
+## G-020: Browser tests, kept light
+
+**Date:** 2026-11-16 · **Status:** accepted
+
+- Pure client modules are unit-tested with Vitest (one worker): the iso projection, the city model
+  built from the map, path-finding on the Yaba map, the engine-state-to-sprite mapping (asleep,
+  walking along the path, off-map), the clock, the save slot, the result card wording and
+  lighting. Pixi itself is not loaded in unit tests.
+- One Playwright smoke test (load, tap to walk, play one encounter, open the Gist) against the
+  production build, in one browser (Chromium, Pixel 7 emulation) with one worker. The screenshot
+  spec only runs with `SHOTS=1`.
+- `@playwright/test` is pinned to 1.64.0 because that version uses the Chromium build already
+  installed on the owner's laptop, so nothing large has to be downloaded. CI installs Chromium
+  itself.
+
+<!-- Next free ID: G-021 -->

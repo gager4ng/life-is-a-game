@@ -5,7 +5,32 @@ export type { RngState } from "./rng";
 export * from "./time";
 export { createWorld, DEFAULT_START_DATE } from "./world";
 export type { CreateWorldOptions } from "./world";
-export { getChar, charDef, getLocation, getRegion, getQuestDef, occupants, isOpen } from "./world";
+export {
+  getChar,
+  charDef,
+  getLocation,
+  getRegion,
+  getQuestDef,
+  occupants,
+  isOpen,
+  isAt,
+  isPresent,
+} from "./world";
+export {
+  WALK_COST,
+  DRIVE_COST,
+  findPath,
+  journey,
+  positionOnJourney,
+  regionMap,
+  placeTile,
+  mapSize,
+  tileCode,
+  isWalkable,
+  sameTile,
+} from "./map";
+export type { Endpoint, Journey, TileCost } from "./map";
+export { travelTile } from "./movement";
 export { validateContentRefs } from "./validate";
 export { appendEvent, getEvent, traceCauses } from "./ledger";
 export { peekRel, relKey } from "./effects";

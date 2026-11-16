@@ -26,6 +26,9 @@ export function checkInvariants(world: World): string[] {
     if (!Number.isInteger(money) || money < 0) errs.push(`${c.id} money ${money}`);
     if (available(world, c) < 0) errs.push(`${c.id} has committed more than they have`);
     if (!locIds.has(c.locationId)) errs.push(`${c.id} is at unknown location ${c.locationId}`);
+    if (c.travel && c.street) errs.push(`${c.id} is both travelling and standing on the street`);
+    if (c.travel && c.travel.arriveTick < c.travel.departTick)
+      errs.push(`${c.id} arrives before leaving`);
     if (c.memories.length > MEMORY_CAP) errs.push(`${c.id} has too many memories`);
     for (const m of c.memories) {
       if (m.strength < 0 || m.strength > 100)

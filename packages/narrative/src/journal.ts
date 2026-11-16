@@ -21,6 +21,30 @@ export interface JournalOptions {
   verbose: boolean;
   /** Interactive play: only what happens to you, where you are, plus news and weather. */
   focus?: boolean;
+  /** Currency sign for amounts (the CLI uses "N", the browser "\u20a6"). */
+  currency?: string;
+}
+
+/** One item for a feed such as the browser's Gist panel. */
+export interface GistEntry {
+  id: string;
+  tick: number;
+  kind: "encounter" | "rumour" | "news" | "quest" | "debt";
+  /** Involves the player character. */
+  mine: boolean;
+  locationId: string | null;
+  headline: string;
+  lines: { speakerId: string; speaker: string; text: string }[];
+  why: string | null;
+  changed: string | null;
+}
+
+interface EncounterParts {
+  headline: string;
+  lines: { speakerId: string; speaker: string; text: string }[];
+  why: string;
+  changed: string;
+  brief: string;
 }
 
 const GLOBAL_TYPES = new Set([
@@ -66,6 +90,10 @@ export class Journal {
     private readonly text: Text,
     private readonly opts: JournalOptions,
   ) {}
+
+  money(n: number): string {
+    return naira(n).replace(/^N/, this.opts.currency ?? "N");
+  }
 
   private name(id: string | null | undefined): string {
     if (!id) return "someone";
@@ -133,11 +161,11 @@ export class Journal {
         return this.renderRumour(ev);
       case "debt_repaid":
         return [
-          `${this.time(ev)}  ${this.text.raw("narrate.debt_repaid", { a: this.name(ev.actors[0]), b: this.name(ev.actors[1]), amount: naira(Number(d.amount)) }, ev.id)}`,
+          `${this.time(ev)}  ${this.text.raw("narrate.debt_repaid", { a: this.name(ev.actors[0]), b: this.name(ev.actors[1]), amount: this.money(Number(d.amount)) }, ev.id)}`,
         ];
       case "debt_overdue":
         return [
-          `  ! ${this.text.raw("narrate.debt_overdue", { a: this.name(ev.actors[0]), b: this.name(ev.actors[1]), amount: naira(Number(d.amount)) }, ev.id)}`,
+          `  ! ${this.text.raw("narrate.debt_overdue", { a: this.name(ev.actors[0]), b: this.name(ev.actors[1]), amount: this.money(Number(d.amount)) }, ev.id)}`,
         ];
       case "went_without":
         if (!this.involvesPlayer(ev) && !this.opts.verbose) return [];
@@ -167,7 +195,11 @@ export class Journal {
       case "day_settled":
         return this.renderSettlement(ev);
       case "player_choice":
-        return [`${this.time(ev)}  You decide to go to ${this.place(String(d.goTo))}.`];
+        return [
+          d.street
+            ? `${this.time(ev)}  You set off down the street.`
+            : `${this.time(ev)}  You decide to go to ${this.place(String(d.goTo))}.`,
+        ];
       default:
         return [];
     }
@@ -192,6 +224,9 @@ export class Journal {
 
   private renderArrival(ev: LedgerEvent): string[] {
     if (!this.involvesPlayer(ev)) return [];
+    if (ev.data.street) {
+      return [`${this.time(ev)}  ${this.name(ev.actors[0])} stopped on the street.`];
+    }
     const src = String(ev.data.source);
     if (src === "routine" && !this.opts.verbose) return [];
     const why =
@@ -204,23 +239,25 @@ export class Journal {
             : src === "closed_fallback"
               ? "the place was closed"
               : "routine";
+    const mins = Number(ev.data.minutes ?? 0);
+    const trip = mins > 0 ? `, ${mins} min on the way` : "";
     return [
-      `${this.time(ev)}  ${this.name(ev.actors[0])} went to ${this.place(ev.location)} (${why}).`,
+      `${this.time(ev)}  ${this.name(ev.actors[0])} got to ${this.place(ev.location)} (${why}${trip}).`,
     ];
   }
 
-  private renderEncounter(ev: LedgerEvent): string[] {
+  /** The pieces of a resolved encounter: what happened, what was said, why, what changed. */
+  encounterParts(ev: LedgerEvent): EncounterParts {
     const d = ev.data;
     const a = String(d.asker);
     const b = String(d.giver);
     const kind = String(d.kind);
     const sub = String(d.subtype);
     const outcome = String(d.outcome);
-    const mine = this.involvesPlayer(ev);
     const vars = {
       a: this.name(a),
       b: this.name(b),
-      amount: d.amount ? naira(Number(d.amount)) : null,
+      amount: d.amount ? this.money(Number(d.amount)) : null,
       target: d.targetLocation ? this.place(String(d.targetLocation)) : null,
       reason: REASON_WORDS[String(d.reason)] ?? String(d.reason),
       opportunity: OPPORTUNITY_WORDS[sub] ?? sub,
@@ -233,17 +270,10 @@ export class Journal {
           : `narrate.opportunity.${outcome}`;
     const start = getEvent(this.world, ev.causes[0]!);
     const weather = WEATHER_WORDS[String(start.data.weather)] ?? "";
-    const head = `${this.time(ev)}  ${this.place(ev.location)}${weather && weather !== "dry" ? ` (${weather})` : ""}: ${this.text.raw(key, vars, ev.id)}`;
-
-    // Passing chats between other people are one line unless verbose.
-    if (kind === "passing" && !mine && !this.opts.verbose) {
-      const fx = this.effectSummary(ev.effects, true);
-      return [`${head}${fx ? `  [${fx}]` : ""}`];
-    }
-    const out = [head];
-    for (const l of (d.lines as { speaker: string; key: string }[]) ?? []) {
+    const headline = `${this.place(ev.location)}${weather && weather !== "dry" ? ` (${weather})` : ""}: ${this.text.raw(key, vars, ev.id)}`;
+    const lines = ((d.lines as { speaker: string; key: string }[]) ?? []).map((l) => {
       const other = l.speaker === a ? b : a;
-      const said = this.text.line(
+      const text = this.text.line(
         l.key,
         {
           other: this.world.characters[other]?.name ?? other,
@@ -252,13 +282,79 @@ export class Journal {
         },
         `${ev.id}:${l.speaker}`,
       );
-      out.push(`      ${this.world.characters[l.speaker]?.name ?? l.speaker}: "${said}"`);
+      return {
+        speakerId: l.speaker,
+        speaker: this.world.characters[l.speaker]?.name ?? l.speaker,
+        text,
+      };
+    });
+    return {
+      headline,
+      lines,
+      why: this.whyLine(start),
+      changed: this.effectSummary(ev.effects, false),
+      brief: this.effectSummary(ev.effects, true),
+    };
+  }
+
+  private renderEncounter(ev: LedgerEvent): string[] {
+    const p = this.encounterParts(ev);
+    const head = `${this.time(ev)}  ${p.headline}`;
+    // Passing chats between other people are one line unless verbose.
+    if (String(ev.data.kind) === "passing" && !this.involvesPlayer(ev) && !this.opts.verbose) {
+      return [`${head}${p.brief ? `  [${p.brief}]` : ""}`];
     }
-    const why = this.whyLine(start);
-    if (why) out.push(`      why: ${why}`);
-    const fx = this.effectSummary(ev.effects, false);
-    if (fx) out.push(`      changed: ${fx}`);
+    const out = [head];
+    for (const l of p.lines) out.push(`      ${l.speaker}: "${l.text}"`);
+    if (p.why) out.push(`      why: ${p.why}`);
+    if (p.changed) out.push(`      changed: ${p.changed}`);
     return out;
+  }
+
+  /** A feed entry for an event, or null if it isn't the kind of thing people gossip about. */
+  gist(ev: LedgerEvent): GistEntry | null {
+    const base = {
+      id: ev.id,
+      tick: ev.tick,
+      mine: this.involvesPlayer(ev),
+      locationId: ev.location,
+      lines: [] as GistEntry["lines"],
+      why: null,
+      changed: null,
+    };
+    switch (ev.type) {
+      case "encounter_resolved": {
+        const p = this.encounterParts(ev);
+        return {
+          ...base,
+          kind: "encounter",
+          headline: p.headline,
+          lines: p.lines,
+          why: p.why || null,
+          changed: p.changed || null,
+        };
+      }
+      case "rumour_shared":
+        return { ...base, kind: "rumour", headline: this.renderRumour(ev)[0]!.trim() };
+      case "world_event_started":
+      case "world_event_ended":
+        return { ...base, kind: "news", headline: this.renderOne(ev)[0]!.trim() };
+      case "quest_started":
+      case "quest_step":
+      case "quest_check":
+      case "quest_completed":
+      case "quest_failed": {
+        const line = this.renderQuest(ev)[0];
+        return line ? { ...base, kind: "quest", headline: line.replace(/^\s*\*\s*/, "") } : null;
+      }
+      case "debt_repaid":
+      case "debt_overdue": {
+        const line = this.renderOne(ev)[0];
+        return line ? { ...base, kind: "debt", headline: line.replace(/^.*? {2}(! )?/, "") } : null;
+      }
+      default:
+        return null;
+    }
   }
 
   /** Turn an encounter's cause ids into a plain-language reason they were both there. */
@@ -296,7 +392,7 @@ export class Journal {
           break;
         case "short_of_money":
           parts.push(
-            `${this.name(c.actors[0])} was short ${naira(Number(d.amount))} for ${d.kind === "transport_money" ? "the fare" : "food"}`,
+            `${this.name(c.actors[0])} was short ${this.money(Number(d.amount))} for ${d.kind === "transport_money" ? "the fare" : "food"}`,
           );
           break;
         case "weather_changed":
@@ -362,7 +458,7 @@ export class Journal {
         case "money":
           if (!brief)
             other.push(
-              `${this.world.characters[e.who]?.name} ${e.delta > 0 ? "+" : "-"}${naira(Math.abs(e.delta))}`,
+              `${this.world.characters[e.who]?.name} ${e.delta > 0 ? "+" : "-"}${this.money(Math.abs(e.delta))}`,
             );
           break;
         case "mood":
@@ -381,7 +477,7 @@ export class Journal {
           );
           break;
         case "debt":
-          if (e.status === "open") other.push(`debt ${naira(e.amount)} recorded`);
+          if (e.status === "open") other.push(`debt ${this.money(e.amount)} recorded`);
           break;
         case "goal":
           other.push(`${this.world.characters[e.who]?.name} achieved goal "${e.goalId}"`);
@@ -463,7 +559,7 @@ export class Journal {
     const balance = money && money.kind === "money" ? money.value : c.needs.money;
     const spent = Number(d.fares) + Number(d.meals) + Number(d.drinks) + Number(d.homeMeal);
     return [
-      `  End of day for ${this.name(c.id)}: earned ${naira(Number(d.income))}, spent ${naira(spent)} (fares ${naira(Number(d.fares))}, food out ${naira(Number(d.meals))}, drinks ${naira(Number(d.drinks))}, home meal ${naira(Number(d.homeMeal))})${d.wentHungry ? ", went to bed hungry" : ""}. Balance ${naira(balance)}.`,
+      `  End of day for ${this.name(c.id)}: earned ${this.money(Number(d.income))}, spent ${this.money(spent)} (fares ${this.money(Number(d.fares))}, food out ${this.money(Number(d.meals))}, drinks ${this.money(Number(d.drinks))}, home meal ${this.money(Number(d.homeMeal))})${d.wentHungry ? ", went to bed hungry" : ""}. Balance ${this.money(balance)}.`,
     ];
   }
 }

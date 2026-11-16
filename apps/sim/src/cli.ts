@@ -13,9 +13,8 @@ import {
   saveWorld,
 } from "@liag/engine";
 import { playInteractive } from "./interactive";
-import { Journal } from "./journal";
 import { peopleSummary, questSummary, relationshipSummary, statsLine } from "./summary";
-import { Text } from "./text";
+import { Journal, Text } from "@liag/narrative";
 
 const HELP = `Life Is A Game: text simulation (roadmap step 1)
 

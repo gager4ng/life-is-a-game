@@ -1,6 +1,6 @@
 import type { Relationship, World } from "@liag/engine";
 import { REL_DIMS, getQuestDef, peekRel } from "@liag/engine";
-import { naira } from "./text";
+import { naira } from "@liag/narrative";
 
 const pad = (s: string, n: number): string =>
   s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length);

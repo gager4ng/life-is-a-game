@@ -8,3 +8,5 @@ coverage/
 !.env.example
 saves/
 *.save.json
+test-results/
+playwright-report/

@@ -18,7 +18,9 @@ import {
 } from "./time";
 import type { LedgerEvent, PendingChoice, World } from "./types";
 import { setDayWeather, updateWeather } from "./weather";
-import { getChar, getLocation, isOpen, sortedCharacterIds } from "./world";
+import type { Tile } from "./content-types";
+import { isWalkable, regionMap } from "./map";
+import { getChar, getLocation, isAt, isOpen, sortedCharacterIds } from "./world";
 
 function startDay(world: World): void {
   const day = dayNumber(world.tick);
@@ -190,29 +192,52 @@ export function reachablePlaces(world: World, playerId: string): string[] {
     .sort()
     .filter((id) => {
       const loc = getLocation(world, id);
-      if (loc.regionId !== c.regionId || id === c.locationId) return false;
+      if (loc.regionId !== c.regionId || isAt(c, id)) return false;
       if (loc.type === "home" && id !== c.homeId) return false;
       return isOpen(loc, minute);
     });
 }
 
 /**
- * A player decides to go somewhere (for `hours`, or until the place closes).
- * Their character moves there on the next tick; the choice is in the ledger.
+ * A player decides to go somewhere: a place they know (for `hours`, or until it closes), or a
+ * spot on the street (a tile on the region's map). Their character sets off on the next tick
+ * and the walk takes as long as the path is; the choice is in the ledger.
  */
 export function setPlayerDestination(
   world: World,
   playerId: string,
-  locationId: string,
+  target: string | Tile,
   hours = 2,
 ): LedgerEvent {
+  const p = world.players[playerId];
+  if (!p) throw new Error(`Unknown player ${playerId}`);
+  const c = getChar(world, p.characterId);
+  let until = world.tick + Math.round((hours * 60) / TICK_MINUTES);
+  if (typeof target !== "string") {
+    const map = regionMap(world.content, c.regionId);
+    if (!map || !isWalkable(map, target)) throw new Error(`Can't walk to ${target.join(",")}`);
+    const tile: Tile = [target[0], target[1]];
+    const ev = appendEvent(world, {
+      type: "player_choice",
+      actors: [c.id],
+      location: c.locationId,
+      causes: [c.arrivalEventId],
+      data: { playerId, goTo: null, street: [tile[0], tile[1]], untilTick: until },
+    });
+    c.override = {
+      locationId: c.locationId,
+      tile,
+      activity: "stroll",
+      untilTick: until,
+      eventId: ev.id,
+    };
+    return ev;
+  }
+  const locationId = target;
   if (!reachablePlaces(world, playerId).includes(locationId)) {
     throw new Error(`Can't go to ${locationId} right now`);
   }
-  const p = world.players[playerId]!;
-  const c = getChar(world, p.characterId);
   const loc = getLocation(world, locationId);
-  let until = world.tick + Math.round((hours * 60) / TICK_MINUTES);
   if (loc.hours) {
     const minute = minuteOfDay(world.tick);
     let close = parseHHMM(loc.hours.close);

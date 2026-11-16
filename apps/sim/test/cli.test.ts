@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadContent, loadDialogue } from "@liag/content";
 import { createWorld, runDays } from "@liag/engine";
 import { playInteractive } from "../src/interactive";
-import { Journal } from "../src/journal";
-import { Text } from "../src/text";
+import { Journal, Text } from "@liag/narrative";
 
 describe("journal and interactive play", () => {
   it("renders a day of journal with no missing text", () => {

@@ -5,7 +5,7 @@ import { dayNumber, minuteOfDay, parseHHMM, isWithin } from "./time";
 import type { CharacterState, World } from "./types";
 import { clamp } from "./util";
 import { currentWeather, weatherEventId } from "./weather";
-import { getChar, hasTrait, isAsleep } from "./world";
+import { getChar, hasTrait, isAsleep, isAt } from "./world";
 
 export interface CondResult {
   ok: boolean;
@@ -60,16 +60,15 @@ export function evalCondition(
       return { ok: true, causes: [rel.lastEventId] };
     }
     case "at_location":
-      return c.locationId === bind(cond.location, bindings)
-        ? { ok: true, causes: [c.arrivalEventId] }
-        : NO;
+      return isAt(c, bind(cond.location, bindings)) ? { ok: true, causes: [c.arrivalEventId] } : NO;
     case "time_between":
       return isWithin(minuteOfDay(world.tick), parseHHMM(cond.from), parseHHMM(cond.to))
         ? { ok: true, causes: [] }
         : NO;
     case "present": {
       const other = world.characters[bind(cond.character, bindings)];
-      if (!other || other.locationId !== c.locationId || isAsleep(other)) return NO;
+      if (!other || !isAt(c, c.locationId) || !isAt(other, c.locationId) || isAsleep(other))
+        return NO;
       return { ok: true, causes: [other.arrivalEventId] };
     }
     case "day_at_least":

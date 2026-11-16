@@ -1,12 +1,16 @@
-import type { ContentBundle, WorldEventDef } from "@liag/engine";
+import type { ContentBundle, RegionMap, WorldEventDef } from "@liag/engine";
 import { validateContentRefs } from "@liag/engine";
 import lagosDialogueJson from "./regions/lagos/dialogue.json";
 import lagosJson from "./regions/lagos/region.json";
+import lagosMapJson from "./regions/lagos/map.json";
+import uiTextJson from "./ui/web.json";
 import questsJson from "./quests/quests.json";
 import worldEventsJson from "./data/world-events.json";
 import {
   DialogueFileSchema,
+  MapFileSchema,
   QuestFileSchema,
+  UiTextFileSchema,
   RegionPackSchema,
   WorldEventFileSchema,
   type DialogueFile,
@@ -21,6 +25,13 @@ export * from "./schema";
  */
 const RAW_REGION_PACKS: unknown[] = [lagosJson];
 const RAW_DIALOGUE: Record<string, unknown> = { lagos: lagosDialogueJson };
+/** Street grids, one per region (optional: a region without one has fixed 10-minute trips). */
+const RAW_MAPS: unknown[] = [lagosMapJson];
+
+export function parseMap(raw: unknown): RegionMap {
+  const { $meta: _meta, ...map } = MapFileSchema.parse(raw);
+  return map;
+}
 
 export function parseRegionPack(raw: unknown): RegionPack {
   return RegionPackSchema.parse(raw);
@@ -35,9 +46,11 @@ export function buildBundle(
   packs: RegionPack[],
   quests: ContentBundle["quests"],
   worldEvents: WorldEventDef[],
+  maps: RegionMap[] = [],
 ): ContentBundle {
   const bundle: ContentBundle = {
     regions: packs.map((p) => p.region),
+    maps,
     locations: packs.flatMap((p) => p.locations),
     characters: packs.flatMap((p) => p.characters),
     relationships: packs.flatMap((p) => p.relationships),
@@ -52,7 +65,7 @@ export function buildBundle(
 export function loadContent(): ContentBundle {
   const packs = RAW_REGION_PACKS.map(parseRegionPack);
   const quests = QuestFileSchema.parse(questsJson).quests;
-  return buildBundle(packs, quests, parseWorldEvents(worldEventsJson));
+  return buildBundle(packs, quests, parseWorldEvents(worldEventsJson), RAW_MAPS.map(parseMap));
 }
 
 export interface DialogueBank {
@@ -78,10 +91,23 @@ export function contentStatus(): { file: string; status: string }[] {
       file: "regions/lagos/dialogue.json",
       status: DialogueFileSchema.parse(lagosDialogueJson).$meta.status,
     },
+    { file: "regions/lagos/map.json", status: MapFileSchema.parse(lagosMapJson).$meta.status },
+    { file: "ui/web.json", status: UiTextFileSchema.parse(uiTextJson).$meta.status },
     { file: "quests/quests.json", status: QuestFileSchema.parse(questsJson).$meta.status },
     {
       file: "data/world-events.json",
       status: WorldEventFileSchema.parse(worldEventsJson).$meta.status,
     },
   ];
+}
+
+export interface UiText {
+  placeholder: boolean;
+  text: Record<string, string>;
+}
+
+/** Interface wording for the browser client. */
+export function loadUiText(): UiText {
+  const f = UiTextFileSchema.parse(uiTextJson);
+  return { placeholder: f.$meta.status !== "APPROVED", text: f.text };
 }

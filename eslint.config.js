@@ -4,7 +4,16 @@ import prettier from "eslint-config-prettier";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.turbo/**", "**/coverage/**"] },
+  {
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/.turbo/**",
+      "**/coverage/**",
+      "**/test-results/**",
+      "**/playwright-report/**",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -43,6 +52,10 @@ export default tseslint.config(
   {
     files: ["apps/**/*.ts", "**/*.config.{js,ts}", "eslint.config.js"],
     languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    files: ["apps/web/src/**/*.ts", "apps/web/e2e/**/*.ts"],
+    languageOptions: { globals: { ...globals.browser } },
   },
   prettier,
 );

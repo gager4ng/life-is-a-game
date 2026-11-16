@@ -1,5 +1,6 @@
 import type {
   ContentBundle,
+  Tile,
   OpportunityKind,
   RelDim,
   Tone,
@@ -8,7 +9,7 @@ import type {
 } from "./content-types";
 import type { RngState } from "./rng";
 
-export const WORLD_VERSION = 1;
+export const WORLD_VERSION = 2;
 
 export const REL_BOUNDS: Record<RelDim, readonly [number, number]> = {
   trust: [-100, 100],
@@ -101,6 +102,21 @@ export interface ShortOfMoney {
   eventId: string;
 }
 
+/** A trip in progress. People on the way are not at any place (no encounters on the move). */
+export interface Travel {
+  /** Where they set off from: a place, or a street spot. */
+  from: { locationId: string } | { tile: Tile };
+  /** Where they're going. */
+  to: { locationId: string } | { tile: Tile };
+  departTick: number;
+  arriveTick: number;
+  activity: string;
+  /** Ledger ids the arrival will cite (the plan or choice that sent them, any rain delay). */
+  causes: string[];
+  source: string;
+  sourceId: string | null;
+}
+
 export interface CharacterState {
   id: string;
   name: string;
@@ -112,10 +128,15 @@ export interface CharacterState {
   traits: TraitId[];
   items: string[];
 
+  /** The place they are at, or (while travelling or out on the street) the last place they left. */
   locationId: string;
   activity: string;
   /** Ledger id of the event that put them where they are. */
   arrivalEventId: string;
+  /** Set while walking or riding between places. */
+  travel: Travel | null;
+  /** Set while standing on a street spot (players only), outside any place. */
+  street: Tile | null;
 
   needs: Needs;
   lastMoneyEventId: string;
@@ -133,7 +154,14 @@ export interface CharacterState {
 
   plan: PlanSegment[];
   planEventId: string;
-  override: { locationId: string; activity: string; untilTick: number; eventId: string } | null;
+  /** A player's choice (or quest autopilot). `tile` set = a spot on the street. */
+  override: {
+    locationId: string;
+    tile?: Tile;
+    activity: string;
+    untilTick: number;
+    eventId: string;
+  } | null;
   delay: { forLocation: string; untilTick: number; eventId: string | null } | null;
   /** A location they want to reach but don't know the way to. */
   seeking: { locationId: string; causeId: string } | null;

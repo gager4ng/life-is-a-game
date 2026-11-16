@@ -19,6 +19,13 @@ describe("content", () => {
     expect(c.characters.length).toBeLessThanOrEqual(13);
     expect(c.characters.filter((x) => x.playable).length).toBeGreaterThanOrEqual(1);
     expect(c.quests.map((q) => q.kind).sort()).toEqual(["emergent", "main", "side"]);
+    // Every Lagos place is on the Yaba map (or reached by danfo from it).
+    const map = c.maps.find((m) => m.regionId === "lagos")!;
+    for (const l of c.locations.filter((x) => x.regionId === "lagos")) {
+      const on = map.places.some((p) => p.locationId === l.id);
+      const off = map.offMap.some((p) => p.locationId === l.id);
+      expect(on || off, l.id).toBe(true);
+    }
   });
 
   it("marks every content file as placeholder until the owner approves it", () => {

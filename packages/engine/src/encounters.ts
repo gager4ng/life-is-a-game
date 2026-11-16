@@ -18,7 +18,15 @@ import type {
 } from "./types";
 import { clamp, pairKey } from "./util";
 import { currentWeather, isRain, rainEndsAt, weatherEventId } from "./weather";
-import { getChar, getLocation, hasItem, hasTrait, isAsleep, sortedCharacterIds } from "./world";
+import {
+  getChar,
+  getLocation,
+  hasItem,
+  hasTrait,
+  isAsleep,
+  isPresent,
+  sortedCharacterIds,
+} from "./world";
 
 // ---------------------------------------------------------------------------
 // Collision of worlds: who is in the same place at the same time, and does anything happen?
@@ -43,7 +51,7 @@ type Need =
   | { kind: "opportunity"; subtype: OpportunityKind; causeId: string };
 
 function isFree(world: World, c: CharacterState): boolean {
-  if (isAsleep(c) || c.busyUntil > world.tick) return false;
+  if (!isPresent(c) || isAsleep(c) || c.busyUntil > world.tick) return false;
   return !world.encounters.some((e) => e.askerId === c.id || e.giverId === c.id);
 }
 

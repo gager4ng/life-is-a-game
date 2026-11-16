@@ -20,10 +20,8 @@ import {
   setPlayerDestination,
   stepTick,
 } from "@liag/engine";
-import { HOUR_TICKS, type Journal } from "./journal";
 import { questSummary, relationshipSummary } from "./summary";
-import type { Text } from "./text";
-import { naira } from "./text";
+import { HOUR_TICKS, naira, type Journal, type Text } from "@liag/narrative";
 
 export type Ask = (prompt: string) => Promise<string | null>;
 export type Print = (line: string) => void;

@@ -139,6 +139,23 @@ export interface JobDef {
   dailyIncome: [number, number];
 }
 
+export const SKIN_TONES = 6;
+export const HAIRSTYLES = ["low_cut", "afro", "braids", "locs", "bald", "bun", "twists"] as const;
+export const HEADWEAR = ["none", "gele", "cap", "fila", "headscarf"] as const;
+export const OUTFITS = ["tshirt", "shirt", "kaftan", "dress", "blouse_wrapper", "suit"] as const;
+
+/** How a character looks, for drawing only (the simulation never reads it). */
+export interface CharacterLook {
+  /** 0 (lightest) .. SKIN_TONES-1 (deepest). */
+  skin: number;
+  build: "slim" | "average" | "broad";
+  hair: (typeof HAIRSTYLES)[number];
+  headwear: (typeof HEADWEAR)[number];
+  outfit: (typeof OUTFITS)[number];
+  /** "#rrggbb" colours for the main garment, the lower garment and a detail. */
+  colors: { top: string; bottom: string; accent: string };
+}
+
 export interface CharacterDef {
   id: string;
   name: string;
@@ -162,6 +179,7 @@ export interface CharacterDef {
   offers: OfferDef[];
   /** Whether a human player may control this character. */
   playable: boolean;
+  look?: CharacterLook;
 }
 
 export interface RelationshipSeed {
@@ -291,8 +309,46 @@ export interface WorldEventDef {
   crowdBoost?: { locationId: string; factor: number }[];
 }
 
+/** A tile coordinate [x, y] on a region's street grid. */
+export type Tile = [number, number];
+
+/** Where a location sits on the street grid. `door` is the walkable tile people go to. */
+export interface MapPlace {
+  locationId: string;
+  /** Full area of the place (building plus yard), in tiles. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  door: Tile;
+  /** The roofed part, if the place is not all building (drawing only). */
+  building?: { x: number; y: number; w: number; h: number };
+}
+
+/** A place beyond the edge of the map, reached by a ride from an on-map place. */
+export interface OffMapPlace {
+  locationId: string;
+  via: string;
+  rideMinutes: number;
+}
+
+/**
+ * A region's street grid. Tile codes: `s` sidewalk, `z` zebra crossing, `p` paved yard,
+ * `g` grass, `R` road (walkable but avoided), `#` building lot, `~` water (both blocked).
+ */
+export interface RegionMap {
+  regionId: string;
+  /** Walking minutes per tile. */
+  minutesPerTile: number;
+  tiles: string[];
+  places: MapPlace[];
+  offMap: OffMapPlace[];
+}
+
 export interface ContentBundle {
   regions: RegionDef[];
+  /** Street grids. A region without one has fixed 10-minute trips. */
+  maps: RegionMap[];
   locations: LocationDef[];
   characters: CharacterDef[];
   relationships: RelationshipSeed[];
