@@ -21,15 +21,23 @@ class MemStore implements Storage {
 }
 
 describe("clock", () => {
-  it("runs one tick every 5 seconds at 1x, faster at 4x, never while paused or held", () => {
+  it("runs one tick every 3 seconds at 1x, faster at 4x, never while paused or held", () => {
+    expect(MS_PER_TICK).toBe(3000);
     const c = new Clock();
     let ticks = 0;
     for (let i = 0; i < 600; i++) if (c.advance(50)) ticks++; // 30 s
-    expect(ticks).toBe(30_000 / MS_PER_TICK);
+    expect(ticks).toBe(10);
     c.speed = 4;
     ticks = 0;
-    for (let i = 0; i < 100; i++) if (c.advance(50)) ticks++; // 5 s at 4x
+    for (let i = 0; i < 60; i++) if (c.advance(50)) ticks++; // 3 s at 4x
     expect(ticks).toBe(4);
+    // Night skip: a tick every 120 ms, at most one per frame.
+    c.speed = 1;
+    c.fast = true;
+    ticks = 0;
+    for (let i = 0; i < 60; i++) if (c.advance(50)) ticks++; // 3 s
+    expect(ticks).toBe(25);
+    c.fast = false;
     c.held = true;
     expect(c.advance(10_000)).toBe(false);
     c.held = false;

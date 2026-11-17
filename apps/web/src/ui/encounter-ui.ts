@@ -111,10 +111,17 @@ export class EncounterUi {
   }
 
   placeBubbles(left: { x: number; y: number }, right: { x: number; y: number }): void {
-    this.bubbleL.style.left = `${left.x}px`;
-    this.bubbleL.style.top = `${left.y}px`;
-    this.bubbleR.style.left = `${right.x}px`;
-    this.bubbleR.style.top = `${right.y}px`;
+    // Keep each bubble on screen: on a narrow phone the heads sit near the edges.
+    const W = window.innerWidth;
+    const place = (b: HTMLElement, p: { x: number; y: number }): void => {
+      const half = (b.offsetWidth || 200) / 2;
+      const x = Math.max(half + 8, Math.min(W - half - 8, p.x));
+      b.style.left = `${x}px`;
+      b.style.top = `${p.y}px`;
+      b.style.setProperty("--tail", `${Math.round(p.x - x)}px`);
+    };
+    place(this.bubbleL, left);
+    place(this.bubbleR, right);
   }
 
   close(): void {

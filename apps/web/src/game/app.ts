@@ -1,5 +1,5 @@
 import { Application, Graphics } from "pixi.js";
-import type { LedgerEvent, PendingChoice, Tile, World } from "@liag/engine";
+import type { Endpoint, LedgerEvent, PendingChoice, RegionMap, Tile, World } from "@liag/engine";
 import {
   TICKS_PER_DAY,
   calendar,
@@ -10,14 +10,19 @@ import {
   formatClock,
   getLocation,
   getQuestDef,
+  isOpen,
   isWalkable,
+  journey,
   minuteOfDay,
   placeTile,
-  questTarget,
   regionMap,
+  sceneFlag,
   stepTick,
 } from "@liag/engine";
 import { Journal, collectGist } from "@liag/narrative";
+import type { Layer, SourcePos } from "../audio/mix";
+import { ambientMix, panFor } from "../audio/mix";
+import { SoundEngine } from "../audio/sound";
 import { Ambient } from "../render/ambient";
 import { Camera, attachGestures } from "../render/camera";
 import type { CityModel } from "../render/city-model";
@@ -32,10 +37,14 @@ import { PeopleView } from "../render/people-view";
 import { WeatherView, lightingFor, nightFactor } from "../render/weather-view";
 import type { Speed } from "./clock";
 import { Clock } from "./clock";
+import type { Suggestion } from "./guide";
+import { activeQuests, doneSteps, focusPlace, hhmm, nextHint, stepGuide } from "./guide";
 import { feelingKey, resultLines } from "./results";
 import { PLAYER_ID, type Session } from "./session";
 import { el } from "../ui/dom";
 import { EncounterUi } from "../ui/encounter-ui";
+import type { CoachStep, QuestView, Rect } from "../ui/guide-ui";
+import { GuideUi, PlaceSheet, QuestPanel } from "../ui/guide-ui";
 import { Hud } from "../ui/hud";
 import { GistPanel, PersonCard } from "../ui/panels";
 import { dialogue, money, t } from "../ui/text";
@@ -49,6 +58,26 @@ interface Bubble {
 }
 
 const REGION = "lagos";
+/** Idle time before a gentle hint appears. */
+const IDLE_HINT_MS = 20_000;
+/** Events that wake the player out of the fast night skip. */
+const WAKE_TYPES = new Set([
+  "encounter_started",
+  "quest_started",
+  "quest_step",
+  "quest_check",
+  "quest_completed",
+  "quest_failed",
+  "world_event_started",
+]);
+
+export interface GameOptions {
+  /** A fresh game: show the guided start and play the first-morning scene straight after. */
+  isNew: boolean;
+  storage: Pick<Storage, "getItem" | "setItem"> | null;
+  /** Leave to the title screen. */
+  onExit: () => void;
+}
 
 /** The playable prototype: city, people, clock, HUD and encounters wired to one Session. */
 export class Game {
@@ -75,22 +104,63 @@ export class Game {
   private bubbles: Bubble[] = [];
   private nowMs = 0;
   private hudAt = 0;
+  private readonly map: RegionMap;
+  private readonly sound: SoundEngine;
+  private readonly guide = new GuideUi();
+  private readonly quests: QuestPanel;
+  private readonly sheet = new PlaceSheet();
+  private readonly arrow = el(
+    "button",
+    { class: "edge-arrow", hidden: true, "data-testid": "edge-arrow" },
+    el("span", { class: "arrow-head" }, "➤"),
+    el("span", { class: "arrow-label" }),
+  );
+  /** Run one tick at once (after the guided start, so the first-morning scene shows). */
+  private forceTick = false;
+  /** Something happened in the night: stop skipping until Tobi is up again. */
+  private skipHalted = false;
+  private lastInput = 0;
+  private soundAt = 0;
+  private arrowAt = 0;
+  private soundSources: SourcePos[] = [];
+  private roadDist: Int16Array = new Int16Array(0);
+  private walkCache = new Map<string, number | null>();
+  private walkCacheTick = -1;
 
   constructor(
     private readonly mount: HTMLElement,
     private session: Session,
+    private readonly opts: GameOptions = { isNew: false, storage: null, onExit: () => {} },
   ) {
     const map = regionMap(session.world.content, REGION);
     if (!map) throw new Error("No map for Lagos");
+    this.map = map;
     this.city = buildCity(map, session.world.content.locations);
     this.journal = this.makeJournal();
+    this.sound = new SoundEngine(opts.storage, import.meta.env.BASE_URL);
     this.hud = new Hud({
       setSpeed: (s) => this.setSpeed(s),
       zoom: (f) => this.camera.zoomAt(f, this.camera.screenW / 2, this.camera.screenH / 2),
       centre: () => this.centreOnPlayer(),
       openGist: () => this.openGist(),
+      openQuests: () => this.openQuests(),
+      showMe: () => this.showMe(),
+      replayGuide: () => void this.runGuide(),
+      backToTitle: () => {
+        this.session.save();
+        this.opts.onExit();
+      },
+      sound: () => this.sound.settings,
+      setSound: (s) => this.sound.set(s),
+      pressed: () => this.sound.ui("tap"),
     });
+    this.hud.onHintTap = () => this.showMe();
     this.gist = new GistPanel(() => this.gist.hide());
+    this.quests = new QuestPanel(() => this.quests.hide());
+    this.arrow.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.showMe();
+    });
   }
 
   private get world(): World {
@@ -116,9 +186,13 @@ export class Game {
       this.overlay,
       this.hud.root,
       this.gist.root,
+      this.quests.root,
       this.card.root,
+      this.sheet.root,
       this.encUi.root,
+      this.guide.root,
     );
+    this.overlay.append(this.arrow);
     const dpr = window.devicePixelRatio || 1;
     await this.app.init({
       resizeTo: stage,
@@ -151,9 +225,12 @@ export class Game {
       minY: 0,
       maxY: ((W + H) * TH) / 2,
     };
-    this.camera.zoom = Math.min(1.1, Math.max(0.6, stage.clientWidth / 520));
+    // Start zoomed in on Tobi (people are placed once first so the camera finds him).
+    this.camera.zoom = Math.min(1.6, Math.max(1.2, stage.clientWidth / 300));
     this.onResize();
+    this.people.update(this.shownTick(), 0, false, 0);
     this.centreOnPlayer(false);
+    this.prepareSound();
     window.addEventListener("resize", () => this.onResize());
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.session.save();
@@ -162,9 +239,76 @@ export class Game {
       onTap: (x, y) => this.onTap(x, y),
       onDoubleTap: () => this.centreOnPlayer(),
     });
+    // Sound may only start after a user gesture; any touch also resets the idle timer.
+    const touched = (): void => {
+      this.sound.unlock();
+      this.lastInput = this.nowMs;
+      if (this.hud.hintShown) this.hud.hideHint();
+    };
+    document.addEventListener("pointerdown", touched, { capture: true });
+    document.addEventListener("keydown", touched, { capture: true });
     this.session.onEvents((evs) => this.onEvents(evs));
     this.app.ticker.add((tk) => this.frame(tk.deltaMS));
     this.exposeDebug();
+    if (this.opts.isNew) {
+      await this.runGuide();
+      // The first-morning scene is due now: play the next tick straight away.
+      this.forceTick = true;
+    }
+  }
+
+  /** Intro card and coach marks; the clock is held while they are up. */
+  private async runGuide(): Promise<"done" | "skipped"> {
+    this.closePanels();
+    const wasHeld = this.clock.held;
+    this.clock.held = true;
+    const rectOf = (e: HTMLElement): Rect => {
+      const r = e.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    };
+    const steps: CoachStep[] = [
+      {
+        text: t("coach.you"),
+        target: () => {
+          const p = this.playerScreen();
+          return { x: p.x - 26, y: p.y - 40, w: 52, h: 70 };
+        },
+      },
+      {
+        text: t("coach.walk"),
+        target: () => {
+          const tile = this.streetNearPlayer();
+          if (!tile) return null;
+          const p = this.tileScreen(tile[0], tile[1]);
+          return { x: p.x - 40, y: p.y - 22, w: 80, h: 44 };
+        },
+      },
+      { text: t("coach.quest"), target: () => rectOf(this.hud.targets.quest) },
+      { text: t("coach.time"), target: () => rectOf(this.hud.targets.time) },
+      { text: t("coach.gist"), target: () => rectOf(this.hud.targets.gist) },
+    ];
+    const r = await this.guide.run(
+      { title: t("intro.title"), body: t("intro.body"), goal: t("intro.goal") },
+      steps,
+    );
+    this.clock.held = wasHeld || this.inEncounter;
+    this.clock.reset();
+    this.lastInput = this.nowMs;
+    return r;
+  }
+
+  private closePanels(): void {
+    this.card.hide();
+    this.gist.hide();
+    this.quests.hide();
+    this.sheet.hide();
+    this.hud.closePops();
+    this.hud.hideHint();
+  }
+
+  private shownTick(): number {
+    const w = this.world;
+    return w.tick === 0 ? 0 : Math.max(0, w.tick - 1) + this.clock.frac;
   }
 
   // ---------------------------------------------------------------------------
@@ -186,9 +330,17 @@ export class Game {
     if (!this.inEncounter) {
       const pending = this.session.pending();
       if (pending) this.startEncounter(pending);
-      else if (this.clock.advance(dtMs) && this.session.step()) {
-        const p = this.session.pending();
-        if (p) this.startEncounter(p);
+      else {
+        // Skip quickly through the night while Tobi sleeps, unless something happened.
+        const asleep = this.session.asleep;
+        if (!asleep) this.skipHalted = false;
+        this.clock.fast = asleep && !this.skipHalted && !this.guide.open;
+        const due = this.forceTick || this.clock.advance(dtMs);
+        this.forceTick = false;
+        if (due && this.session.step()) {
+          const p = this.session.pending();
+          if (p) this.startEncounter(p);
+        }
       }
     }
     const lastTick = Math.max(0, w.tick - 1);
@@ -211,6 +363,11 @@ export class Game {
       this.camera.apply(this.cityView.root);
       this.updateMarkers();
       this.updateOverlay();
+      if (this.nowMs - this.arrowAt > 100) {
+        this.arrowAt = this.nowMs;
+        this.updateArrow();
+      }
+      this.maybeHint();
     } else {
       const heads = this.scene.heads();
       this.encUi.placeBubbles(heads.left, heads.right);
@@ -218,6 +375,10 @@ export class Game {
     if (this.nowMs - this.hudAt > 150) {
       this.hudAt = this.nowMs;
       this.updateHud(minute, wx, L.night > 0.5);
+    }
+    if (this.nowMs - this.soundAt > 250) {
+      this.soundAt = this.nowMs;
+      this.updateSound(minute, wx);
     }
   }
 
@@ -235,20 +396,14 @@ export class Game {
       mood: c.needs.mood,
       energy: c.needs.energy,
       quest: this.currentQuestText(),
+      canShowMe: this.activeQuest() !== null,
       speed: this.clock.speed,
+      sleeping: this.clock.fast && !this.inEncounter,
     });
   }
 
   private activeQuest(): World["quests"][number] | null {
-    const order = { main: 0, side: 1, emergent: 2 } as const;
-    const qs = this.world.quests
-      .filter((q) => q.characterId === this.me && q.status === "active")
-      .sort(
-        (a, b) =>
-          order[getQuestDef(this.world, a.questId).kind] -
-          order[getQuestDef(this.world, b.questId).kind],
-      );
-    return qs[0] ?? null;
+    return activeQuests(this.world, this.me)[0] ?? null;
   }
 
   private currentQuestText(): string | null {
@@ -271,7 +426,7 @@ export class Game {
 
   private playerWorldPos(): { x: number; y: number } {
     const v = this.people.viewOf(this.me);
-    if (v && v.visible) return iso(v.x + 0.5, v.y + 0.5);
+    if (v && (v.visible || v.hiddenBecause === "asleep")) return iso(v.x + 0.5, v.y + 0.5);
     const c = this.world.characters[this.me]!;
     const map = regionMap(this.world.content, REGION)!;
     const t0 = placeTile(map, c.locationId) ?? [20, 17];
@@ -305,10 +460,8 @@ export class Game {
   }
 
   private updateMarkers(): void {
-    const q = this.activeQuest();
-    const target = q ? questTarget(this.world, q) : null;
-    const map = regionMap(this.world.content, REGION)!;
-    const tile = target ? placeTile(map, target.locationId) : null;
+    const focus = this.focus();
+    const tile = focus ? placeTile(this.map, focus) : null;
     this.questMarker.visible = !!tile;
     if (tile) {
       const p = iso(tile[0] + 0.5, tile[1] + 0.5);
@@ -361,6 +514,21 @@ export class Game {
   private onEvents(events: LedgerEvent[]): void {
     const me = this.me;
     const mine = this.people.viewOf(me);
+    let questSound = false;
+    let moneyDelta = 0;
+    for (const ev of events) {
+      if (ev.actors.includes(me) && WAKE_TYPES.has(ev.type) && this.clock.fast) {
+        this.skipHalted = true;
+      }
+      if (ev.type.startsWith("quest_") && ev.actors.includes(me) && ev.type !== "quest_check")
+        questSound = true;
+      for (const fx of ev.effects) {
+        if (fx.kind === "money" && fx.who === me) moneyDelta += fx.delta;
+      }
+    }
+    if (questSound) this.sound.ui("quest");
+    else if (moneyDelta) this.sound.ui(moneyDelta > 0 ? "moneyUp" : "moneyDown");
+    this.walkCacheTick = -1;
     for (const ev of events) {
       if (ev.type === "arrived" && ev.actors[0] === me) this.destMarker.visible = false;
       if (ev.type !== "encounter_resolved" || ev.actors.includes(me) || !mine) continue;
@@ -379,6 +547,7 @@ export class Game {
       }
     }
     if (this.gist.open) this.openGist();
+    if (this.quests.open) this.openQuests();
   }
 
   // ---------------------------------------------------------------------------
@@ -386,7 +555,9 @@ export class Game {
   // ---------------------------------------------------------------------------
 
   private onTap(sx: number, sy: number): void {
-    if (this.inEncounter) return;
+    if (this.inEncounter || this.guide.open) return;
+    this.hud.closePops();
+    this.sheet.hide();
     const w = this.camera.screenToWorld(sx, sy);
     const hits = this.people.hit(w.x, w.y);
     if (hits.length) return this.showPerson(hits[0]!);
@@ -420,6 +591,7 @@ export class Game {
     if (!target) return;
     this.session.goTo(target);
     this.setDestination(target);
+    this.sound.ui("walk");
     this.hud.toast(t("walkingThere"));
   }
 
@@ -430,9 +602,9 @@ export class Game {
     if (why === "closed") return this.hud.toast(t("closedNow", { place: name }));
     if (why === "here") return this.hud.toast(t("atPlace", { place: name }));
     this.session.goTo(locationId);
-    const map = regionMap(this.world.content, REGION)!;
-    const tile = placeTile(map, locationId);
+    const tile = placeTile(this.map, locationId);
     if (tile) this.setDestination(tile);
+    this.sound.ui("walk");
     this.hud.toast(t("headingTo", { place: name }));
   }
 
@@ -474,8 +646,10 @@ export class Game {
   private startEncounter(p: PendingChoice): void {
     this.inEncounter = true;
     this.clock.held = true;
-    this.card.hide();
-    this.gist.hide();
+    this.clock.fast = false;
+    this.closePanels();
+    this.sound.ui("chime");
+    this.sound.setDucked(true);
     for (const b of this.bubbles) b.node?.remove();
     this.bubbles = [];
     const w = this.world;
@@ -489,8 +663,9 @@ export class Game {
       amount: p.amount ? money(p.amount) : null,
       target: enc?.targetLocation ? getLocation(w, enc.targetLocation).name : null,
     };
-    const key =
-      p.kind === "passing"
+    const key = p.scene
+      ? `prompt.scene.${p.scene}`
+      : p.kind === "passing"
         ? "prompt.chat"
         : p.role === "giver" && p.kind === "opportunity"
           ? "prompt.giver"
@@ -568,8 +743,337 @@ export class Game {
     this.hud.root.hidden = false;
     this.overlay.hidden = false;
     this.inEncounter = false;
-    this.clock.held = false;
+    this.clock.held = this.guide.open;
     this.clock.reset();
+    this.sound.setDucked(false);
+    this.lastInput = this.nowMs;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Guidance: what to do next, "Show me", the edge arrow, idle hints, quests
+  // ---------------------------------------------------------------------------
+
+  private minuteNow(): number {
+    return minuteOfDay(Math.max(0, this.world.tick - 1));
+  }
+
+  /** Where Tobi is, as a journey start. */
+  private playerEndpoint(): Endpoint {
+    const c = this.world.characters[this.me]!;
+    if (c.travel) {
+      const v = this.people.viewOf(this.me);
+      if (v?.visible) {
+        const tile: Tile = [Math.round(v.x), Math.round(v.y)];
+        if (isWalkable(this.map, tile)) return { tile };
+      }
+      return c.travel.to;
+    }
+    if (c.street) return { tile: c.street };
+    return { locationId: c.locationId };
+  }
+
+  /** Walking minutes from Tobi to a place (cached per tick). */
+  private walkMinutes(locationId: string): number | null {
+    if (this.walkCacheTick !== this.world.tick) {
+      this.walkCache.clear();
+      this.walkCacheTick = this.world.tick;
+    }
+    if (!this.walkCache.has(locationId)) {
+      try {
+        const j = journey(this.world.content, REGION, this.playerEndpoint(), { locationId });
+        this.walkCache.set(locationId, j.totalMinutes);
+      } catch {
+        this.walkCache.set(locationId, null);
+      }
+    }
+    return this.walkCache.get(locationId) ?? null;
+  }
+
+  /** The place the arrow, the quest marker and "Show me" point at. */
+  private focus(): string | null {
+    return focusPlace(stepGuide(this.world, this.me, this.minuteNow()));
+  }
+
+  private placeCentre(locationId: string): { x: number; y: number } | null {
+    const p = this.city.places.find((x) => x.locationId === locationId);
+    if (!p) return null;
+    const c = iso(p.rect.x + p.rect.w / 2, p.rect.y + p.rect.h / 2);
+    return { x: c.x, y: c.y - 30 };
+  }
+
+  private panTo(locationId: string): void {
+    const c = this.placeCentre(locationId);
+    if (c) this.camera.centreOn(c.x, c.y + 40);
+  }
+
+  private suggestionText(s: Suggestion): string {
+    const place = getLocation(this.world, s.locationId).name;
+    const v = { name: s.name, place, from: hhmm(s.from), to: hhmm(s.to % 1440) };
+    const line = s.now
+      ? t("suggestNow", v)
+      : s.later
+        ? t("suggestLater", v)
+        : t("suggestUsually", v);
+    return s.known ? line : `${line} ${t("suggestUnknown")}`;
+  }
+
+  /** "Show me": pan to where the current step can be done and offer to walk there. */
+  showMe(): void {
+    this.hud.hideHint();
+    this.hud.closePops();
+    this.quests.hide();
+    this.gist.hide();
+    const g = stepGuide(this.world, this.me, this.minuteNow());
+    if (!g) return;
+    const walkTo = (id: string): void => this.goToPlace(id);
+    if (g.target) {
+      const id = g.target.locationId;
+      const loc = getLocation(this.world, id);
+      const lines = [g.objective];
+      if (!g.target.known) {
+        lines.push(t("dontKnowYet"));
+        this.sheet.show(loc.name, lines, null);
+        return;
+      }
+      this.panTo(id);
+      const mins = this.walkMinutes(id);
+      if (mins !== null) lines.push(t("walkMins", { mins: Math.max(1, Math.round(mins)) }));
+      if (g.target.window)
+        lines.push(
+          t("needsTime", { from: hhmm(g.target.window[0]), to: hhmm(g.target.window[1] % 1440) }),
+        );
+      else if (loc.hours) lines.push(t("openHours", { from: loc.hours.open, to: loc.hours.close }));
+      this.sheet.show(loc.name, lines, { label: t("walkThere"), onClick: () => walkTo(id) });
+      return;
+    }
+    const best = g.suggestions.find((s) => s.known);
+    if (best) this.panTo(best.locationId);
+    const options = g.suggestions.slice(0, 4).map((s) => ({
+      label: this.suggestionText(s),
+      sub: s.known
+        ? t("walkMins", { mins: Math.max(1, Math.round(this.walkMinutes(s.locationId) ?? 0)) })
+        : undefined,
+      onPick: s.known
+        ? () => {
+            this.sheet.hide();
+            this.panTo(s.locationId);
+            walkTo(s.locationId);
+          }
+        : undefined,
+    }));
+    this.sheet.show(
+      t("suggestTitle"),
+      [g.objective],
+      best ? { label: t("walkThere"), onClick: () => walkTo(best.locationId) } : null,
+      options,
+    );
+  }
+
+  /** Off-screen target: an arrow at the screen edge pointing at it, with walking minutes. */
+  private updateArrow(): void {
+    const id = this.focus();
+    const c = id ? this.placeCentre(id) : null;
+    if (!id || !c || this.guide.open || this.clock.fast) {
+      this.arrow.hidden = true;
+      return;
+    }
+    const s = this.camera.worldToScreen(c.x, c.y);
+    const W = this.camera.screenW;
+    const H = this.camera.screenH;
+    const top = this.hud.targets.quest.getBoundingClientRect().bottom + 8;
+    const bottom = H - 70;
+    const inside = s.x > 20 && s.x < W - 20 && s.y > top && s.y < bottom;
+    if (inside) {
+      this.arrow.hidden = true;
+      return;
+    }
+    const cx = W / 2;
+    const cy = (top + bottom) / 2;
+    const dx = s.x - cx;
+    const dy = s.y - cy;
+    const k = Math.min(
+      Math.abs((W / 2 - 34) / (dx || 1e-6)),
+      Math.abs(((bottom - top) / 2 - 26) / (dy || 1e-6)),
+    );
+    const ax = cx + dx * k;
+    const ay = cy + dy * k;
+    const angle = Math.atan2(dy, dx);
+    this.arrow.hidden = false;
+    this.arrow.style.transform = `translate(${Math.round(ax)}px, ${Math.round(ay)}px) translate(-50%, -50%)`;
+    (this.arrow.firstChild as HTMLElement).style.transform = `rotate(${angle}rad)`;
+    const mins = this.walkMinutes(id);
+    (this.arrow.lastChild as HTMLElement).textContent =
+      mins === null ? "" : `${Math.max(1, Math.round(mins))} min`;
+    this.arrow.setAttribute("aria-label", getLocation(this.world, id).name);
+  }
+
+  /** After ~20 s without a touch, a gentle hint with the suggested next action. */
+  private maybeHint(): void {
+    if (this.hud.hintShown || this.guide.open || this.clock.fast) return;
+    if (this.gist.open || this.quests.open || this.sheet.open) return;
+    if (this.nowMs - this.lastInput < IDLE_HINT_MS) return;
+    this.lastInput = this.nowMs;
+    const h = this.currentHint();
+    if (h) this.hud.showHint(h);
+  }
+
+  private currentHint(): string | null {
+    const h = nextHint(this.world, this.me, this.minuteNow(), (id) => this.walkMinutes(id));
+    return h ? t(h.key, h.vars) : null;
+  }
+
+  private openQuests(): void {
+    const w = this.world;
+    const minute = this.minuteNow();
+    const g = stepGuide(w, this.me, minute);
+    const mine = w.quests
+      .filter((q) => q.characterId === this.me)
+      .sort((a, b) => {
+        const ra = a.status === "active" ? 0 : 1;
+        const rb = b.status === "active" ? 0 : 1;
+        return ra - rb || a.instanceId.localeCompare(b.instanceId);
+      });
+    const today = dayNumber(Math.max(0, w.tick - 1));
+    const views: QuestView[] = mine.map((q) => {
+      const def = getQuestDef(w, q.questId);
+      const step = def.steps.find((s) => s.id === q.stepId);
+      let deadline: string | null = null;
+      if (q.status === "active" && q.deadlineTick !== null) {
+        const day = dayNumber(q.deadlineTick - 1);
+        const left = day - today;
+        deadline = t("questDeadline", {
+          day,
+          left: left <= 0 ? t("lastDay") : t("daysLeft", { n: left }),
+        });
+      }
+      const help: string[] = [];
+      if (q.status === "active" && g && g.questInstance === q.instanceId) {
+        if (g.target) {
+          const loc = getLocation(w, g.target.locationId);
+          if (!g.target.known) help.push(t("dontKnowYet"));
+          else {
+            const mins = this.walkMinutes(loc.id);
+            help.push(
+              `${loc.name}${mins !== null ? ` · ${t("walkMins", { mins: Math.max(1, Math.round(mins)) })}` : ""}${isOpen(loc, minute) ? "" : ` · ${t("closedNow", { place: loc.name })}`}`,
+            );
+          }
+        }
+        for (const s of g.suggestions.slice(0, 3)) help.push(this.suggestionText(s));
+      }
+      return {
+        title: def.title,
+        summary: def.summary,
+        status: q.status,
+        now: q.status === "active" ? (step?.objective ?? null) : null,
+        done: doneSteps(w, q),
+        deadline,
+        help,
+      };
+    });
+    this.gist.hide();
+    this.sheet.hide();
+    this.quests.show(views);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sound
+  // ---------------------------------------------------------------------------
+
+  /** Sound sources from the map, and each tile's distance to the nearest road. */
+  private prepareSound(): void {
+    const layerOf: Record<string, SourcePos["layer"]> = {
+      market: "market",
+      transport_hub: "park",
+      buka: "buka",
+      music_venue: "live",
+    };
+    for (const p of this.city.places) {
+      const type = getLocation(this.world, p.locationId).type;
+      const layer = layerOf[type];
+      if (layer)
+        this.soundSources.push({ layer, x: p.rect.x + p.rect.w / 2, y: p.rect.y + p.rect.h / 2 });
+    }
+    const { width: W, height: H } = this.city;
+    const dist = new Int16Array(W * H).fill(-1);
+    const queue: number[] = [];
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (this.map.tiles[y]![x] === "R") {
+          dist[y * W + x] = 0;
+          queue.push(y * W + x);
+        }
+    for (let qi = 0; qi < queue.length; qi++) {
+      const i = queue[qi]!;
+      const x = i % W;
+      const y = Math.floor(i / W);
+      for (const [nx, ny] of [
+        [x + 1, y],
+        [x - 1, y],
+        [x, y + 1],
+        [x, y - 1],
+      ] as const) {
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || dist[ny * W + nx] !== -1) continue;
+        dist[ny * W + nx] = dist[i]! + 1;
+        queue.push(ny * W + nx);
+      }
+    }
+    this.roadDist = dist;
+  }
+
+  private updateSound(minute: number, wx: ReturnType<typeof currentWeather>): void {
+    if (!this.sound.started) return;
+    const g = screenToTile(this.camera.x, this.camera.y + 20);
+    const lx = Math.max(0, Math.min(this.city.width - 1, Math.floor(g.x)));
+    const ly = Math.max(0, Math.min(this.city.height - 1, Math.floor(g.y)));
+    const road = this.roadDist[ly * this.city.width + lx] ?? 0;
+    const listener = { x: g.x, y: g.y };
+    const mix = ambientMix({
+      minute,
+      weather: wx,
+      listener,
+      zoom: this.camera.zoom,
+      sources: this.soundSources,
+      roadDistance: Math.max(0, road),
+    });
+    const pans: Partial<Record<Layer, number>> = {};
+    for (const s of this.soundSources) {
+      const d = Math.hypot(s.x - g.x, s.y - g.y);
+      const prev = pans[s.layer];
+      if (prev === undefined || d < 40) pans[s.layer] = panFor(s, listener);
+    }
+    this.sound.update(mix, pans);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Screen helpers
+  // ---------------------------------------------------------------------------
+
+  private playerScreen(): { x: number; y: number } {
+    const p = this.playerWorldPos();
+    return this.camera.worldToScreen(p.x, p.y - 20);
+  }
+
+  private tileScreen(tx: number, ty: number): { x: number; y: number } {
+    const p = iso(tx + 0.5, ty + 0.5);
+    return this.camera.worldToScreen(p.x, p.y);
+  }
+
+  /** A sidewalk tile just outside Tobi's door (for the "tap the street" coach mark). */
+  private streetNearPlayer(): Tile | null {
+    const c = this.world.characters[this.me]!;
+    const door = placeTile(this.map, c.locationId);
+    if (!door) return null;
+    for (let r = 1; r <= 4; r++)
+      for (const [dx, dy] of [
+        [r, 0],
+        [0, r],
+        [-r, 0],
+        [0, -r],
+      ] as const) {
+        const tile: Tile = [door[0] + dx, door[1] + dy];
+        if (isWalkable(this.map, tile) && !placeAt(this.city, tile[0], tile[1])) return tile;
+      }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -595,17 +1099,30 @@ export class Game {
           speed: this.clock.speed,
           fps: Math.round(this.app.ticker.FPS),
           frameMs: Math.round(this.frameCost * 100) / 100,
+          day: dayNumber(Math.max(0, this.world.tick - 1)),
+          guideOpen: this.guide.open,
+          sceneDone: Boolean(c.flags[sceneFlag("welcome_ada")]),
+          knowsLiveSpot: Boolean(c.knownLocations["loc_yaba_livespot"]),
+          asleep: this.session.asleep,
+          fast: this.clock.fast,
+          focus: this.focus(),
+          sound: this.sound.started ? this.sound.loaded() : null,
         };
       },
+      /** Screen position of the place the guidance points at (null if none). */
+      focusScreen: () => {
+        const id = this.focus();
+        const c = id ? this.placeCentre(id) : null;
+        return c ? this.camera.worldToScreen(c.x, c.y) : null;
+      },
+      hint: () => this.currentHint(),
+      cameraZoom: () => this.camera.zoom,
       /** Screen position of a tile's centre (CSS px), for tapping in tests. */
       tileToScreen: (tx: number, ty: number) => {
         const p = iso(tx + 0.5, ty + 0.5);
         return this.camera.worldToScreen(p.x, p.y);
       },
-      playerScreen: () => {
-        const p = this.playerWorldPos();
-        return this.camera.worldToScreen(p.x, p.y - 20);
-      },
+      playerScreen: () => this.playerScreen(),
       centreOnTile: (tx: number, ty: number, zoom?: number) => {
         if (zoom) this.camera.zoom = zoom;
         const p = iso(tx + 0.5, ty + 0.5);

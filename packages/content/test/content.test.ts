@@ -41,6 +41,10 @@ describe("content", () => {
       expect(lines[`option.asker.${tone}`]).toBeDefined();
       expect(lines[`option.giver.${tone}`]).toBeDefined();
     }
+    for (const sc of loadContent().scenes ?? []) {
+      for (const k of [`prompt.scene.${sc.id}`, `scene.${sc.id}.open`, `scene.${sc.id}.tip`])
+        expect(lines[k], k).toBeDefined();
+    }
     for (const sub of ["umbrella", "transport_money", "chop_money", "directions"]) {
       expect(lines[`help.${sub}.withdraw`]).toBeDefined();
       expect(lines[`narrate.help.${sub}.helped`]).toBeDefined();

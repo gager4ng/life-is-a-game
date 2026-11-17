@@ -6,6 +6,7 @@ import {
   loadWorld,
   pendingChoices,
   reachablePlaces,
+  runUntil,
   saveWorld,
   setPlayerDestination,
   stepTick,
@@ -15,6 +16,12 @@ import { loadContent } from "@liag/content";
 export const PLAYER_ID = "p1";
 export const PLAYER_CHAR = "c_tobi";
 export const SAVE_KEY = "liag:save:v2";
+/**
+ * A new game opens on day 1 at 06:40 with Tobi up at home. The engine's clock starts at
+ * midnight (tick 0), so the night before is simulated first, with the player on autopilot.
+ * World tick 41 = the 06:40 tick has run; the screen shows 06:40 moving towards 06:50.
+ */
+export const NEW_GAME_TICK = 41;
 
 export interface Storage {
   getItem(k: string): string | null;
@@ -36,8 +43,10 @@ export class Session {
   static newGame(storage: Storage | null, seed: number): Session {
     const world = createWorld(loadContent(), {
       seed,
-      players: [{ playerId: PLAYER_ID, characterId: PLAYER_CHAR }],
+      players: [{ playerId: PLAYER_ID, characterId: PLAYER_CHAR, autopilot: true }],
     });
+    runUntil(world, NEW_GAME_TICK);
+    world.players[PLAYER_ID]!.autopilot = false;
     const s = new Session(world, storage);
     s.save();
     return s;
@@ -103,6 +112,12 @@ export class Session {
     if (reachablePlaces(this.world, PLAYER_ID).includes(locationId)) return null;
     if (c.locationId === locationId && !c.travel && !c.street) return "here";
     return "closed";
+  }
+
+  /** The player character is asleep (indoors, not on the way anywhere). */
+  get asleep(): boolean {
+    const c = this.world.characters[this.playerCharId]!;
+    return c.activity === "sleep" && !c.travel && !c.street;
   }
 
   goTo(target: string | Tile): LedgerEvent {

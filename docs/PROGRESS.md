@@ -1,5 +1,82 @@
 # Progress
 
+## Roadmap step 3 ("G-003" in the brief): first-play experience, guidance and sound. **Done (2026-11-17)**
+
+Decisions for this step are G-021 to G-026 in `docs/DECISIONS.md`.
+
+### Fixed (from the owner's phone test)
+
+- **The 03:50 start:**
+  - The engine's day starts at midnight, and the browser started from there.
+  - New games now simulate the night first and open on day 1 at 06:40, with Tobi up at home.
+  - The camera is centred and zoomed in on him.
+  - Continue resumes at the saved time, on Tobi. While he sleeps, his marker stays visible.
+- **The bottom bar overflowing on a phone:**
+  - It is now one compact control: play/pause, speed, and zoom behind 🔍.
+  - Quests and Gist are always visible.
+  - It fits 360 px in portrait.
+
+### Built
+
+- **Guided start:**
+  - An intro card says who Tobi is and that he wants his first paid gig.
+  - Then five coach marks: you, tap to walk, the quest line, the time controls, Gist.
+  - You can skip it at any step and replay it from the ☰ menu.
+- **First morning:**
+  - A scripted but engine-run scene: right after the guide, housemate Ada greets Tobi and tells
+    him Uncle Tunde at Bluelight Live Spot gives new acts a stage.
+  - Tobi learns the way there.
+  - Scenes are a new piece of content that goes through the normal encounter code and the ledger.
+- **Always know what to do next:**
+  - **Show me** on the quest line pans to the place and offers **Walk there**.
+  - For steps with no fixed place it lists who could help, and where and when to find them,
+    worked out from the engine (offers, day plans, the engine's own refusal rules).
+  - An **arrow at the screen edge** points to an off-screen target, with walking minutes.
+  - A **hint bubble** appears after about 20 s idle.
+  - A **quest panel** shows active quests, the current step, what's done and deadlines.
+- **Sound:**
+  - Web Audio, started by the first tap.
+  - Mute, volume and music on/off, remembered between visits.
+  - The ambience changes with place, time and weather: traffic, market chatter, voices and horns
+    at the park, buka sizzle, live music from the live spot in the evening, night insects, rain,
+    thunder and wind.
+  - UI sounds and a light music loop.
+  - About 0.8 MB of CC0 files, see `docs/ASSETS.md`; the rest is generated in code.
+- **Pace:** 1x is now a tick every 3 s. Nights skip quickly while Tobi sleeps, behind a
+  "Sleeping…" overlay, and stop if something happens.
+- **Tests:**
+  - Engine: 36 (4 new for scenes). Content: 5. Narrative: 1. CLI: 8.
+  - Browser unit tests: 26. New ones cover hints, suggestions, the morning start, the clock and
+    the sound mix.
+  - The Playwright smoke test now checks the morning start on Tobi, skipping the guide, the
+    first-morning encounter, tap to walk, the edge arrow and "Show me" panning to the target,
+    and the Gist.
+- **Screenshots** (Pixel 7 size), in `docs/screenshots/`:
+  - updated: `01-day-street.png`, `02-night-rain.png`, `03-encounter.png`, `04-gist.png`
+  - new: `05-guided-start.png`, `06-show-me-arrow.png`
+
+### Needs the owner's approval before anything ships
+
+- All new wording: the intro, coach marks, hints, the quest panel, sound and menu labels
+  (`ui/web.json`), and Ada's scene lines (`dialogue.json`).
+- The scene itself, and Ada now leaving for work at 07:30.
+- The sound choices in `docs/ASSETS.md`.
+
+### Known limitations / candidates for the next step
+
+- **Sound:**
+  - Only checked in desktop Chromium: all files load and decode, but I could not listen to it.
+    Please listen on the phone.
+  - No CC0 recording of danfo conductors calling routes exists, so short bursts of a CC0 crowd
+    clip stand in near the park.
+  - The live-spot drums and the music loop are generic, not Nigerian music.
+- **Scene timing:** the welcome scene needs Tobi and Ada at home between 06:50 and 07:30 on day
+  1. The game plays that tick right after the guide closes, so on a new game it always happens.
+     It is never replayed later.
+- **Ranking suggestions:** suggestions read the engine's rules but don't simulate them. A
+  suggested person can still say no.
+- **Not yet re-tested on a real phone:** the 360 px layout was checked in emulation.
+
 ## Roadmap step 2 ("G-002" in the brief): playable browser prototype of Yaba. **Done (2026-11-16)**
 
 Decisions for this step are G-013 to G-020 in `docs/DECISIONS.md`.

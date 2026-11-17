@@ -142,6 +142,7 @@ export function pendingChoices(world: World, playerId: string): PendingChoice[] 
         locationId: enc.locationId,
         amount: enc.amount,
         options: optionsFor(world, enc, cid),
+        scene: enc.scene ?? null,
       });
     }
   }

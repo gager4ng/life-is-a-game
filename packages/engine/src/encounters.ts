@@ -1,12 +1,26 @@
-import type { LocationDef, LocationType, OpportunityKind, Tone } from "./content-types";
+import type {
+  LocationDef,
+  LocationType,
+  OpportunityKind,
+  QuestEffects,
+  Tone,
+} from "./content-types";
 import { autoReply, findOffer, npcDecide } from "./decisions";
 import { available, createDebt, openDebts, repayDebt } from "./economy";
 import type { Sink } from "./effects";
-import { adjustMood, adjustRel, learnLocation, openSink, peekRel, setFlag } from "./effects";
+import {
+  adjustMood,
+  adjustRel,
+  changeMoney,
+  learnLocation,
+  openSink,
+  peekRel,
+  setFlag,
+} from "./effects";
 import { appendEvent } from "./ledger";
 import { SHAREABLE, addMemory } from "./memory";
 import { chance } from "./rng";
-import { TICK_MINUTES, isNight, minuteOfDay } from "./time";
+import { TICK_MINUTES, dayNumber, isNight, isWithin, minuteOfDay, parseHHMM } from "./time";
 import type {
   CharacterState,
   DialogueLine,
@@ -188,8 +202,48 @@ function contextCauses(
   return [...out, ...boostCauses];
 }
 
+/** The flag that marks a scene as done for a character (set when it resolves). */
+export const sceneFlag = (sceneId: string): string => `scene:${sceneId}`;
+
+/**
+ * Scripted encounters from content. No chance roll: when the rules allow the meeting (both
+ * awake, free and at the place, inside the window, not done yet), it starts.
+ */
+function detectScenes(world: World): void {
+  const scenes = [...(world.content.scenes ?? [])].sort((a, b) => a.id.localeCompare(b.id));
+  if (!scenes.length) return;
+  const day = dayNumber(world.tick);
+  const minute = minuteOfDay(world.tick);
+  for (const sc of scenes) {
+    if (day < sc.days.from || day > sc.days.to) continue;
+    if (!isWithin(minute, parseHHMM(sc.from), parseHHMM(sc.to))) continue;
+    const asker = getChar(world, sc.asker);
+    const locId = sc.at === "home" ? asker.homeId : sc.at;
+    if (asker.controlledBy || !isFree(world, asker) || asker.locationId !== locId) continue;
+    for (const id of sortedCharacterIds(world)) {
+      const p = world.characters[id]!;
+      if (!p.controlledBy || (sc.forCharacter && sc.forCharacter !== id)) continue;
+      if (p.flags[sceneFlag(sc.id)] || !isFree(world, p) || p.locationId !== locId) continue;
+      const loc = getLocation(world, locId);
+      startEncounter(world, {
+        kind: "passing",
+        subtype: "small_talk",
+        asker,
+        giver: p,
+        loc,
+        causes: [world.dayEventId, ...contextCauses(world, loc, [asker, p], [])],
+        amount: null,
+        targetLocation: null,
+        scene: sc.id,
+      });
+      break;
+    }
+  }
+}
+
 /** Each tick: find co-present, awake, free people and let the rules decide what happens. */
 export function detectEncounters(world: World): void {
+  detectScenes(world);
   const groups = new Map<string, CharacterState[]>();
   for (const id of sortedCharacterIds(world)) {
     const c = world.characters[id]!;
@@ -291,6 +345,7 @@ interface EncounterSpec {
   causes: string[];
   amount: number | null;
   targetLocation: string | null;
+  scene?: string;
 }
 
 export function startEncounter(world: World, spec: EncounterSpec): Encounter {
@@ -310,6 +365,7 @@ export function startEncounter(world: World, spec: EncounterSpec): Encounter {
       amount: spec.amount,
       targetLocation: spec.targetLocation,
       weather: currentWeather(world, spec.asker.regionId),
+      ...(spec.scene ? { scene: spec.scene } : {}),
     },
   });
   const enc: Encounter = {
@@ -325,6 +381,7 @@ export function startEncounter(world: World, spec: EncounterSpec): Encounter {
     replies: {},
     amount: spec.amount,
     targetLocation: spec.targetLocation,
+    ...(spec.scene ? { scene: spec.scene } : {}),
   };
   spec.asker.busyUntil = world.tick + 1;
   spec.giver.busyUntil = world.tick + 1;
@@ -343,6 +400,9 @@ export function startEncounter(world: World, spec: EncounterSpec): Encounter {
         const reply = autoReply(world, enc, c.id);
         recordPlayerReply(world, enc, c.id, reply, true);
       } else enc.awaiting.push(c.id);
+    } else if (spec.scene) {
+      // A scripted opener: the computer-run character always starts it warmly.
+      enc.replies[c.id] = { tone: "friendly", action: "none", eventId: null };
     } else {
       enc.replies[c.id] = autoReply(world, enc, c.id);
     }
@@ -395,7 +455,8 @@ export function resolveEncounter(world: World, enc: Encounter): void {
   const tg = enc.replies[g.id]?.tone ?? "friendly";
   const sink = openSink(world);
   let out: Outcome;
-  if (enc.kind === "passing") out = resolvePassing(world, sink, enc, a, g, ta, tg);
+  if (enc.scene) out = resolveScene(world, sink, enc, a, g, ta, tg);
+  else if (enc.kind === "passing") out = resolvePassing(world, sink, enc, a, g, ta, tg);
   else if (enc.kind === "help") out = resolveHelp(world, sink, enc, a, g, ta, tg);
   else out = resolveOpportunity(world, sink, enc, a, g, ta, tg);
 
@@ -420,6 +481,7 @@ export function resolveEncounter(world: World, enc: Encounter): void {
       amount: enc.amount,
       targetLocation: enc.targetLocation,
       lines: out.lines.map((l) => ({ speaker: l.speaker, key: l.key })),
+      ...(enc.scene ? { scene: enc.scene } : {}),
     },
   });
 
@@ -492,6 +554,52 @@ function resolvePassing(
   const lines: DialogueLine[] = [{ speaker: a.id, key: `passing.open.${ta}` }];
   if (ta !== "walk_away") lines.push({ speaker: g.id, key: `passing.reply.${tg}` });
   return { outcome: chatted ? "chatted" : "brushed_off", reason: null, lines };
+}
+
+/**
+ * A scripted chat: relationships move as in any passing chat, the scene is marked done, and if
+ * the player stays to listen they get what the scene gives (a tip, a place, a flag).
+ */
+function resolveScene(
+  world: World,
+  sink: Sink,
+  enc: Encounter,
+  a: CharacterState,
+  g: CharacterState,
+  ta: Tone,
+  tg: Tone,
+): Outcome {
+  const def = (world.content.scenes ?? []).find((s) => s.id === enc.scene);
+  if (!def) throw new Error(`Unknown scene ${enc.scene}`);
+  const base = resolvePassing(world, sink, enc, a, g, ta, tg);
+  const player = g.controlledBy ? g : a;
+  const playerTone = player === g ? tg : ta;
+  setFlag(world, sink, player.id, sceneFlag(def.id));
+  const lines: DialogueLine[] = [
+    { speaker: a.id, key: `scene.${def.id}.open` },
+    { speaker: g.id, key: `passing.reply.${tg}` },
+  ];
+  if (playerTone !== "walk_away") {
+    applySceneEffects(world, sink, player, def.effects, a.id);
+    lines.push({ speaker: a.id, key: `scene.${def.id}.tip` });
+  }
+  return { outcome: base.outcome, reason: def.id, lines };
+}
+
+function applySceneEffects(
+  world: World,
+  sink: Sink,
+  c: CharacterState,
+  fx: QuestEffects,
+  otherId: string,
+): void {
+  if (fx.money) changeMoney(world, sink, c.id, fx.money);
+  if (fx.mood) adjustMood(world, sink, c.id, fx.mood);
+  for (const f of fx.flags ?? []) setFlag(world, sink, c.id, f);
+  for (const r of fx.relationships ?? []) {
+    adjustRel(world, sink, r.with === "$asker" ? otherId : r.with, c.id, { [r.dim]: r.delta });
+  }
+  if (fx.revealLocation) learnPlace(world, sink, c, fx.revealLocation);
 }
 
 function giverAgrees(

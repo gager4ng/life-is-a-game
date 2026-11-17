@@ -81,8 +81,12 @@ export class PeopleView {
     for (const s of this.sprites.values()) {
       const v = personView(w, this.city, s.id, shownTick, s.view ?? undefined);
       s.view = v;
-      s.root.visible = v.visible;
-      if (!v.visible) continue;
+      // The player stays marked while asleep indoors, so you can always find Tobi.
+      const sleepingPlayer = !v.visible && v.hiddenBecause === "asleep" && !!s.marker;
+      s.root.visible = v.visible || sleepingPlayer;
+      s.body.visible = v.visible;
+      if (s.ring) s.ring.visible = v.visible;
+      if (!s.root.visible) continue;
       const p = iso(v.x + 0.5, v.y + 0.5);
       s.root.position.set(p.x, p.y);
       s.root.zIndex = entityZ(v.x, v.y);
@@ -93,7 +97,7 @@ export class PeopleView {
       s.body.context = (front ? frames.front : frames.back)[frame]!;
       s.body.scale.x = v.facing === "sw" || v.facing === "nw" ? -1 : 1;
       if (s.umbrella) s.umbrella.visible = raining;
-      if (s.marker) s.marker.y = Math.sin(timeMs / 260) * 3;
+      if (s.marker) s.marker.y = Math.sin(timeMs / 260) * 3 + (sleepingPlayer ? -30 : 0);
     }
   }
 
@@ -106,7 +110,7 @@ export class PeopleView {
   hit(px: number, py: number): string[] {
     const out: { id: string; d: number }[] = [];
     for (const s of this.sprites.values()) {
-      if (!s.root.visible) continue;
+      if (!s.root.visible || !s.body.visible) continue;
       const dx = px - s.root.x;
       const dy = py - s.root.y;
       if (Math.abs(dx) <= 14 && dy <= 6 && dy >= -50)

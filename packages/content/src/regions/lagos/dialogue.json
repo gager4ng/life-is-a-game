@@ -224,6 +224,13 @@
     ],
 
     "prompt.chat": ["{other} is here and catches your eye."],
+    "prompt.scene.welcome_ada": [
+      "Your housemate {other} is getting ready for work and waves you over."
+    ],
+    "scene.welcome_ada.open": ["Tobi! You don settle? Na today you start to find gig abi?"],
+    "scene.welcome_ada.tip": [
+      "Go Bluelight Live Spot this evening. Uncle Tunde dey there from four, na him dey give new acts stage. Greet am well, he no like nonsense."
+    ],
     "prompt.umbrella.asker": ["The rain is soaking you. {other} has an umbrella."],
     "prompt.umbrella.giver": ["{other} is getting soaked beside you. You have an umbrella."],
     "prompt.transport_money.asker": [

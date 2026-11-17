@@ -229,7 +229,7 @@
         "weekday": [
           { "from": "00:00", "at": "home", "activity": "sleep" },
           { "from": "06:00", "at": "home", "activity": "morning" },
-          { "from": "07:00", "at": "work", "activity": "work" },
+          { "from": "07:30", "at": "work", "activity": "work" },
           { "from": "16:00", "at": "home", "activity": "rest" },
           { "from": "22:30", "at": "home", "activity": "sleep" }
         ],
@@ -1020,6 +1020,22 @@
       "respect": 0,
       "warmth": 0,
       "tension": 0
+    }
+  ],
+  "scenes": [
+    {
+      "id": "welcome_ada",
+      "asker": "c_ada",
+      "at": "home",
+      "forCharacter": "c_tobi",
+      "days": { "from": 1, "to": 1 },
+      "from": "06:50",
+      "to": "07:30",
+      "effects": {
+        "revealLocation": "loc_yaba_livespot",
+        "flags": ["tip:gig_leads"],
+        "relationships": [{ "with": "$asker", "dim": "warmth", "delta": 2 }]
+      }
     }
   ]
 }

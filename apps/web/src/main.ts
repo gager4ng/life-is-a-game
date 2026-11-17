@@ -20,9 +20,14 @@ async function boot(): Promise<void> {
   const root = document.getElementById("app")!;
   const params = new URLSearchParams(location.search);
   const store = storage();
-  const start = async (session: Session): Promise<void> => {
+  const start = async (session: Session, isNew: boolean): Promise<void> => {
     root.replaceChildren(el("div", { class: "loading" }, t("loading")));
-    const game = new Game(root, session);
+    // Back to the title page: the simplest clean restart is a reload (the game is saved).
+    const game = new Game(root, session, {
+      isNew,
+      storage: store,
+      onExit: () => location.reload(),
+    });
     root.replaceChildren();
     await game.start();
   };
@@ -30,13 +35,13 @@ async function boot(): Promise<void> {
     const seed = params.has("seed")
       ? Number(params.get("seed"))
       : Math.floor(Math.random() * 1_000_000);
-    void start(Session.newGame(store, seed));
+    void start(Session.newGame(store, seed), true);
   };
   const title = titleScreen(
     Session.hasSave(store),
     () => {
       const s = Session.continueGame(store);
-      if (s) void start(s);
+      if (s) void start(s, false);
       else newGame();
     },
     newGame,

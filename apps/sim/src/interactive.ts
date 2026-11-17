@@ -73,8 +73,9 @@ async function handleChoice(
     amount: choice.amount ? naira(choice.amount) : null,
     target: choice.subtype === "directions" ? targetName(world, choice) : null,
   };
-  const key =
-    choice.kind === "passing"
+  const key = choice.scene
+    ? `prompt.scene.${choice.scene}`
+    : choice.kind === "passing"
       ? "prompt.chat"
       : choice.role === "giver" && choice.kind === "opportunity"
         ? "prompt.giver"

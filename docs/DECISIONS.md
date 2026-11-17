@@ -350,4 +350,136 @@ Each decision has an ID (G-001, G-002, …). Newest at the bottom.
   installed on the owner's laptop, so nothing large has to be downloaded. CI installs Chromium
   itself.
 
-<!-- Next free ID: G-021 -->
+## G-021: New games open at 06:40 on Tobi (bug fix)
+
+**Date:** 2026-11-17 · **Status:** accepted · Roadmap step 3 ("G-003" in the brief)
+
+- **Why it started at 03:50:** the engine's clock starts at midnight (tick 0 is 00:00 on day
+  1), and the browser started running from there. At 1x it reached 03:50 after about two
+  minutes. At night Tobi is asleep indoors, so his figure is hidden. The camera centred on his
+  door, and the market below it filled the phone screen, so nothing showed you where you were.
+- **Fix:** `Session.newGame` first simulates the night with Tobi on autopilot, up to world tick 41. A new game opens on day 1 at 06:40, with Tobi up at home. The engine is unchanged, and the
+  night still lands in the ledger as normal, deterministic ticks.
+- The camera places people once before centring, and opens zoomed in (1.2–1.6×) on Tobi.
+- While Tobi sleeps, his marker stays visible over his home, so a game continued at night still
+  shows where he is.
+- **Continue** resumes from the save at the saved tick, centred on Tobi. The save is written
+  right after the new-game run-up, every game hour, after each encounter and when the tab is
+  hidden.
+
+## G-022: Scripted scenes, run by the engine
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- Content can declare **scenes**: `regions/<region>/region.json → scenes`. A scene names who
+  starts it (a computer-run character), where (`home` or a place), which player character it
+  is for, and the days and time window. It also lists what it gives if the player stays to
+  listen: a place, flags, money, mood, relationships, where `$asker` means the person speaking.
+- There is no dice roll. When the normal rules allow the meeting (both people awake, free and at
+  the place, inside the window) the scene starts through `startEncounter`. It is checked before
+  random encounters each tick. It is ledgered like any encounter (`data.scene`), with causes:
+  the day and both people's arrivals.
+- The resolution is a normal chat (relationships, mood, memories, gossip), plus the scene's
+  effects if the player didn't walk off. The flag `scene:<id>` marks it done either way, so it
+  never repeats.
+- Dialogue keys: `prompt.scene.<id>`, `scene.<id>.open`, `scene.<id>.tip`. A content test
+  checks they exist. Validation checks the asker, the place, the days and the effects.
+- **First scene, `welcome_ada`:** on day 1, between 06:50 and 07:30, Ada greets Tobi at home and
+  tells him Uncle Tunde at Bluelight Live Spot gives new acts a stage. Tobi learns the way to
+  the live spot (flag `tip:gig_leads`, Ada's warmth +2). To give the window room, Ada now leaves
+  for work at 07:30 on weekdays instead of 07:00 (placeholder content).
+- In the browser, the scene is due on the first tick after the guided start. The game runs that
+  tick at once, so the encounter shows within seconds of the guide closing.
+- Engine tests: once only, ledgered, effects applied, walk-away gives nothing, wrong day or wrong
+  player never triggers it, validation, determinism. All earlier tests still pass.
+
+## G-023: Guidance (guided start, Show me, arrow, hints, quest panel)
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- **Guided start:**
+  - An intro card says who Tobi is and what his goal is.
+  - Then five coach marks, one at a time: Tobi, the street, the quest line, the time controls,
+    the Gist button.
+  - The guide is skippable at every step and can be replayed from the ☰ menu. The clock is held
+    while it is up.
+  - It shows on every new game, not on Continue.
+- **"Show me"** (on the quest line) asks the pure module `game/guide.ts`, which reads only
+  engine state and content:
+  - **Step with a fixed place** (from `questTarget`): the camera pans there. A sheet shows the
+    walking minutes, the time window or opening hours, and **Walk there**.
+  - **Step with no fixed place**, such as "find someone who can get you on a stage":
+    - It takes the flags the step waits for and finds who has an offer granting them that they
+      can still give to the player (`findOffer`).
+    - It lists where each person's plan for today takes them: now, later, or usually. Other
+      people's homes and sleep are left out.
+    - It follows the engine's own rules: a competitive rival chasing the same break is left out
+      while warmth is below 30; low trust ranks lower; the buka and the music venue rank higher.
+    - Each line can be tapped to walk there.
+- **Edge arrow:**
+  - When the place being pointed at is off screen, a round arrow at the screen edge points to it,
+    with the walking minutes from the engine's path-finding.
+  - Tapping it is the same as "Show me".
+  - The yellow map marker follows the same place.
+- **Idle hint:**
+  - After about 20 s without a touch (and no panel, guide or night skip up), a hint bubble shows
+    the suggested next action. For example: "Uncle Tunde will be at Bluelight Live Spot from
+    16:00. Go and say hello."
+  - Tapping it opens "Show me". No hint while asleep or while a reply is due.
+- **Quest panel:**
+  - Shows active quests with the current step, who could help, the steps already done (from
+    `quest_step` events in the ledger) and the deadline in days.
+  - Finished and failed quests are listed below.
+- Unit tests cover suggestions, the rival rule, used-up offers, fixed-place steps, hints (including
+  none while asleep or mid-encounter), done steps, and the new-game start.
+
+## G-024: HUD for a 360 px phone
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- **Top bar:**
+  - Day, time, weather and money, plus a sound button and the ☰ menu.
+  - Mood and energy bars.
+  - The quest line, which opens the quest panel, with **Show me** beside it.
+- **Bottom row:**
+  - One compact time control on the left: ❚❚/▶, a speed button that cycles 1x→2x→4x, and 🔍,
+    which opens zoom in, find Tobi and zoom out.
+  - **Quests** and **Gist** always visible on the right.
+  - It fits 360 px in portrait (checked at 360 × 760). Every touch target is at least 44 px.
+- In an encounter on a narrow screen, speech bubbles stay on screen and can be wider.
+
+## G-025: Sound
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- Web Audio, started by the first tap (a browser rule). A 🔊 pop-over has sound on/off, a volume
+  slider and music on/off. The settings are remembered in `localStorage` (`liag:sound`).
+- **Ambient layers:** traffic, market chatter, voices and horns at the danfo park, buka sizzle
+  and pots, live-spot music, night insects, rain, thunder and wind. Their mix comes from the
+  pure, tested `audio/mix.ts`:
+  - **Time:** traffic is louder in the rush hours and quieter at night; the market is open
+    06:30–19:30; the live spot plays from 16:00 and fully from 18:00; insects play at night.
+  - **Weather:** rain, heavy rain with thunder, harmattan wind.
+  - **Distance:** each place's sound falls off with distance from the camera centre. Zooming out
+    makes everything further away. Sounds are panned left or right.
+- **UI sounds:** tap, walk start, encounter chime, quest step, money gained and money lost.
+  Ambience ducks during encounters.
+- A light music loop runs on its own bus. It fades out where the live spot is playing.
+- Generated in code: rain, wind, thunder, insects, sizzle, pots and all UI sounds. CC0 files for
+  traffic, voices, horns and both music tracks, listed in `docs/ASSETS.md`. They come to about
+  0.8 MB, fetched after the city appears. If a file fails to load, that layer stays silent (or
+  generated) and the game carries on.
+
+## G-026: Pace: 1x is 3 s per tick, nights are skipped
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- 1x = one 10-minute tick every **3 s** (was 5 s); 2x and 4x as before.
+- **Night skip:**
+  - While Tobi is asleep at home, the clock runs a tick every 120 ms (a night takes about
+    a minute), with a "Sleeping…" overlay and the clock on it.
+  - It stops by itself when something involving Tobi happens (an encounter, a quest event, a
+    world event). It stays off until he is up again.
+  - Pause still pauses.
+
+<!-- Next free ID: G-027 -->

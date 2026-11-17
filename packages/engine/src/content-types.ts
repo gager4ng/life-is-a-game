@@ -345,6 +345,29 @@ export interface RegionMap {
   offMap: OffMapPlace[];
 }
 
+/**
+ * A scripted encounter: when the rules allow it (both people awake, free and at the same place,
+ * inside the time window), a computer-run character starts a chat with a player character.
+ * It still runs through the normal encounter code and the ledger. Fires once per player.
+ * Dialogue keys: `prompt.scene.<id>`, `scene.<id>.open`, `scene.<id>.tip`.
+ */
+export interface SceneDef {
+  id: string;
+  /** The computer-run character who starts it. */
+  asker: string;
+  /** A location id, or "home" (the asker's home). */
+  at: string;
+  /** Only for this player character (any player character if omitted). */
+  forCharacter?: string;
+  /** Inclusive day numbers (1 = first day). */
+  days: { from: number; to: number };
+  /** HH:MM window, [from, to). */
+  from: string;
+  to: string;
+  /** Applied to the player character when they stay to listen (no walk-away). */
+  effects: QuestEffects;
+}
+
 export interface ContentBundle {
   regions: RegionDef[];
   /** Street grids. A region without one has fixed 10-minute trips. */
@@ -354,4 +377,6 @@ export interface ContentBundle {
   relationships: RelationshipSeed[];
   quests: QuestDef[];
   worldEvents: WorldEventDef[];
+  /** Scripted encounters (optional). */
+  scenes?: SceneDef[];
 }

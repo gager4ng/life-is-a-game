@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export interface LiagState {
   tick: number;
@@ -9,6 +9,12 @@ export interface LiagState {
   override: { locationId: string; tile: [number, number] | null } | null;
   inEncounter: boolean;
   weather: string;
+  day: number;
+  guideOpen: boolean;
+  sceneDone: boolean;
+  focus: string | null;
+  asleep: boolean;
+  fast: boolean;
 }
 
 type Api = {
@@ -19,6 +25,9 @@ type Api = {
   centrePlayer(zoom?: number): void;
   runUntilEncounter(max?: number): boolean;
   runTo(tick: number): void;
+  playerScreen(): { x: number; y: number };
+  focusScreen(): { x: number; y: number } | null;
+  hint(): string | null;
 };
 
 declare global {
@@ -36,4 +45,14 @@ export async function newGame(page: Page, seed: number): Promise<void> {
 
 export function state(page: Page): Promise<LiagState> {
   return page.evaluate(() => window.__liag.state());
+}
+
+/** Skip the guided start, then answer the first-morning chat that follows it. */
+export async function skipGuideAndScene(page: Page): Promise<void> {
+  await page.getByTestId("guide-skip").click();
+  await expect(page.getByTestId("encounter")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("choices").locator("button").first().click();
+  await expect(page.getByTestId("result")).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId("result-ok").click();
+  await expect(page.getByTestId("encounter")).toBeHidden();
 }

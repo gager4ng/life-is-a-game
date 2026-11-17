@@ -305,6 +305,18 @@ export const UiTextFileSchema = z.object({
   text: z.record(z.string(), z.string()),
 });
 
+/** A scripted encounter (see SceneDef in the engine). */
+export const SceneSchema = z.object({
+  id,
+  asker: id,
+  at: z.string(),
+  forCharacter: id.optional(),
+  days: z.object({ from: z.number().int().positive(), to: z.number().int().positive() }),
+  from: hhmm,
+  to: hhmm,
+  effects: EffectsSchema,
+});
+
 /** One region's data: drop a new file like this in to add Abuja, Port Harcourt or Kano. */
 export const RegionPackSchema = z.object({
   $meta: MetaSchema,
@@ -312,6 +324,7 @@ export const RegionPackSchema = z.object({
   locations: z.array(LocationSchema),
   characters: z.array(CharacterSchema),
   relationships: z.array(RelationshipSeedSchema),
+  scenes: z.array(SceneSchema).optional(),
 });
 
 export const QuestFileSchema = z.object({ $meta: MetaSchema, quests: z.array(QuestSchema) });

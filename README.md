@@ -1,8 +1,9 @@
 # Life Is A Game (working title)
 
 A living-world life simulation set in Nigeria. This repository holds **roadmap step 1** (a
-text-only proof of the encounter engine and the event ledger) and **roadmap step 2**: a playable
-browser prototype of Yaba, a code-drawn isometric city running that engine in the page.
+text-only proof of the encounter engine and the event ledger), **roadmap step 2** (a playable
+browser prototype of Yaba, a code-drawn isometric city running that engine in the page) and
+**roadmap step 3**: a first-play experience with a guided start, "what next" guidance and sound.
 
 People in a small slice of Lagos live their routines in 10-minute ticks. When schedules, places
 and circumstances overlap (rain holding everyone at the danfo park, the lunch rush at the buka,
@@ -42,13 +43,24 @@ networks.)
 
 How to play:
 
+- A new game opens on day 1 at 06:40 with Tobi at home. A short **guided start** shows you
+  around; skip it any time, replay it from the ☰ menu. Right after it, a housemate drops by
+  with a tip.
+- Not sure what to do? Tap **Show me** on the quest line: the camera goes to where you're
+  needed (or lists who could help, and where and when to find them) and offers **Walk there**.
+  An arrow at the screen edge points to it when it's off screen. Stay idle for 20 s and a hint
+  appears. **📜 Quests** lists your quests, the step you're on, what's done and deadlines.
 - **Tap a place or a spot on the street** and Tobi walks there along the streets. You can only go
   to places you know the way to. Ask around, and people may tell you.
-- **Drag** to look around, **pinch** (or + / −) to zoom, **double-tap** (or ◎) to find Tobi.
+- **Drag** to look around, **pinch** (or 🔍 then + / −) to zoom, **double-tap** (or 🔍 then ◎) to
+  find Tobi.
 - **Tap anyone** to see who they are and how they feel about you.
-- Time runs on its own: **1x** is 10 game minutes every 5 seconds; there's also pause, 2x and 4x.
-  It stops by itself when someone talks to you. Pick a reply; afterwards a card shows what changed.
+- Time runs on its own: **1x** is 10 game minutes every 3 seconds. ❚❚ pauses; the speed button
+  cycles 1x, 2x and 4x. Nights skip quickly while Tobi sleeps. Time stops by itself when someone
+  talks to you. Pick a reply; afterwards a card shows what changed.
 - **Gist** shows what has been happening around Yaba, and why.
+- **Sound** starts with your first tap. 🔊 has sound on/off, volume and music on/off. Sources
+  of the few sound files are in `docs/ASSETS.md`.
 - The game saves itself in the browser (one slot). **Continue** or **New game** on the title
   screen. `?seed=42` in the address starts a fixed world.
 
@@ -102,7 +114,7 @@ SHOTS=1 pnpm e2e # also retake docs/screenshots at phone size
 ```
 
 Screenshots: `docs/screenshots/01-day-street.png`, `02-night-rain.png`, `03-encounter.png`,
-`04-gist.png`.
+`04-gist.png`, `05-guided-start.png`, `06-show-me-arrow.png`.
 
 ## Layout
 
@@ -112,9 +124,11 @@ packages/content   zod-validated JSON content: regions, street maps, places, cha
                    their looks), quests, world events, placeholder dialogue and UI wording.
 packages/narrative Turns the ledger into readable text (journal, Gist feed). Shared.
 apps/sim           The CLI: journal and interactive mode.
-apps/web           The browser prototype (Vite + PixiJS): city, people, HUD, encounters.
+apps/web           The browser prototype (Vite + PixiJS): city, people, HUD, encounters,
+                   guidance (game/guide.ts) and sound (audio/).
 docs/DECISIONS.md  Decision log (G-001 onwards).
 docs/PROGRESS.md   What's done, what's next, what needs approval.
+docs/ASSETS.md     Third-party files (a few CC0 sounds) with source and licence.
 ```
 
 ## Adding a region (Abuja, Port Harcourt, Kano…)

@@ -97,6 +97,28 @@ export function validateContentRefs(c: ContentBundle): string[] {
     }
   }
 
+  dupes(
+    (c.scenes ?? []).map((s) => s.id),
+    "scene",
+  );
+  for (const sc of c.scenes ?? []) {
+    const w = `scene ${sc.id}`;
+    const asker = c.characters.find((x) => x.id === sc.asker);
+    if (!asker) errs.push(`${w}: unknown asker ${sc.asker}`);
+    else if (asker.playable) errs.push(`${w}: asker ${sc.asker} must not be playable`);
+    if (sc.at !== "home" && !locs.has(sc.at)) errs.push(`${w}: unknown location ${sc.at}`);
+    if (sc.forCharacter && !chars.has(sc.forCharacter))
+      errs.push(`${w}: unknown character ${sc.forCharacter}`);
+    if (sc.days.from < 1 || sc.days.to < sc.days.from) errs.push(`${w}: bad day range`);
+    time(sc.from, w);
+    time(sc.to, w);
+    const fx = sc.effects;
+    if (fx.revealLocation && !locs.has(fx.revealLocation))
+      errs.push(`${w}: unknown location ${fx.revealLocation}`);
+    for (const r of fx.relationships ?? [])
+      if (r.with !== "$asker" && !chars.has(r.with)) errs.push(`${w}: unknown character ${r.with}`);
+  }
+
   const locRef = (ref: string, where: string, regionId: string, hasJob: boolean): void => {
     if (ref === "home") return;
     if (ref === "work") {

@@ -212,6 +212,8 @@ export interface Encounter {
   replies: Record<string, EncounterReply>;
   amount: number | null;
   targetLocation: string | null;
+  /** Set when a content scene started it (scripted encounter). */
+  scene?: string;
 }
 
 export type EncounterRole = "asker" | "giver" | "chat";
@@ -235,6 +237,8 @@ export interface PendingChoice {
   locationId: string;
   amount: number | null;
   options: ReplyOption[];
+  /** The content scene behind it, if scripted (null otherwise). */
+  scene: string | null;
 }
 
 export interface QuestInstance {

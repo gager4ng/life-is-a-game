@@ -56,6 +56,7 @@ export function buildBundle(
     relationships: packs.flatMap((p) => p.relationships),
     quests,
     worldEvents,
+    scenes: packs.flatMap((p) => p.scenes ?? []),
   };
   const errors = validateContentRefs(bundle);
   if (errors.length) throw new Error(`Content has broken references:\n- ${errors.join("\n- ")}`);
