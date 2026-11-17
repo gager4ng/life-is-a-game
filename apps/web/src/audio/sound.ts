@@ -1,10 +1,15 @@
+import type { GrooveMode } from "./groove";
 import type { Layer, Mix } from "./mix";
+import type { MusicSource, TrackList } from "./music";
+import { GeneratedMusic, TrackMusic, parseTrackList } from "./music";
 
 /**
  * Web Audio for the prototype. Starts on the first tap (browsers only allow sound after a user
- * gesture). Rain, wind, night insects, buka sizzle, thunder and every UI sound are generated in
- * code; traffic, voices, horns and music are small CC0 files (see docs/ASSETS.md), fetched only
- * after the city is on screen. Settings (mute, volume, music) are remembered in localStorage.
+ * gesture). Rain, wind, night insects, buka sizzle, thunder, every UI sound and the
+ * Afrobeats-style music (background and the live spot) are generated in code; traffic, voices
+ * and horns are small CC0 files (see docs/ASSETS.md), fetched only after the city is on screen.
+ * Licensed tracks listed in public/music/tracks.json replace the generated music for a mode.
+ * Settings (mute, volume, music) are remembered in localStorage.
  */
 
 export interface SoundSettings {
@@ -32,7 +37,7 @@ const LEVEL: Record<Layer, number> = {
   music: 0.22,
 };
 
-const FILES = ["traffic", "chatter", "livemusic", "music", "horn1", "horn2"] as const;
+const FILES = ["traffic", "chatter", "horn1", "horn2"] as const;
 type FileName = (typeof FILES)[number];
 
 export function loadSoundSettings(store: Pick<Storage, "getItem"> | null): SoundSettings {
@@ -74,6 +79,16 @@ export class SoundEngine {
   private filesRequested = false;
   /** Quieter ambience while an encounter is on screen. */
   private duck = 1;
+  private musicMode: GrooveMode = "day";
+  private bgMusic: MusicSource | null = null;
+  private liveMusic: MusicSource | null = null;
+  private tracks: TrackList = { day: [], night: [], live: [] };
+  private readonly trackBuffers = new Map<string, AudioBuffer>();
+  /** Which music is playing: "generated", or "tracks" when licensed files are in use. */
+  musicKind: { background: "generated" | "tracks"; live: "generated" | "tracks" } = {
+    background: "generated",
+    live: "generated",
+  };
 
   constructor(
     private readonly store: Pick<Storage, "getItem" | "setItem"> | null,
@@ -108,7 +123,67 @@ export class SoundEngine {
     this.buildGenerated();
     for (const layer of Object.keys(LEVEL) as Layer[]) this.channel(layer);
     this.startGeneratedLoops();
+    this.startMusic();
     this.loadFiles();
+  }
+
+  /** Day or night arrangement for the background music. */
+  setMusicMode(mode: Exclude<GrooveMode, "live">): void {
+    if (mode === this.musicMode) return;
+    this.musicMode = mode;
+    if (this.musicKind.background === "tracks" && this.ctx) {
+      // Switch playlists if this mode has its own tracks.
+      this.bgMusic?.stop();
+      this.bgMusic = this.makeMusic(mode, this.channel("music").gain);
+    } else this.bgMusic?.setMode(mode);
+  }
+
+  private makeMusic(mode: GrooveMode, out: AudioNode): MusicSource {
+    const names = this.tracks[mode].length
+      ? this.tracks[mode]
+      : mode === "night"
+        ? this.tracks.day
+        : [];
+    const bufs = names.map((n) => this.trackBuffers.get(n)).filter((b): b is AudioBuffer => !!b);
+    if (bufs.length) return new TrackMusic(this.ctx!, out, bufs);
+    return new GeneratedMusic(this.ctx!, out, mode, mode === "live" ? 7 : 3);
+  }
+
+  private startMusic(): void {
+    this.bgMusic = this.makeMusic(this.musicMode, this.channel("music").gain);
+    this.liveMusic = this.makeMusic("live", this.channel("live").gain);
+    // Licensed tracks, if any were dropped into public/music/.
+    void fetch(`${this.baseUrl}music/tracks.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(async (raw: unknown) => {
+        if (!raw || !this.ctx) return;
+        this.tracks = parseTrackList(raw);
+        const all = [...new Set([...this.tracks.day, ...this.tracks.night, ...this.tracks.live])];
+        await Promise.all(
+          all.map(async (name) => {
+            try {
+              const r = await fetch(`${this.baseUrl}music/${encodeURIComponent(name)}`);
+              if (!r.ok) return;
+              this.trackBuffers.set(name, await this.ctx!.decodeAudioData(await r.arrayBuffer()));
+            } catch {
+              /* a bad file is skipped */
+            }
+          }),
+        );
+        if (this.tracks.day.length || this.tracks.night.length) {
+          this.bgMusic?.stop();
+          this.bgMusic = this.makeMusic(this.musicMode, this.channel("music").gain);
+          this.musicKind.background = this.bgMusic instanceof TrackMusic ? "tracks" : "generated";
+        }
+        if (this.tracks.live.length) {
+          this.liveMusic?.stop();
+          this.liveMusic = this.makeMusic("live", this.channel("live").gain);
+          this.musicKind.live = this.liveMusic instanceof TrackMusic ? "tracks" : "generated";
+        }
+      })
+      .catch(() => {
+        /* no track list: generated music */
+      });
   }
 
   set(s: Partial<SoundSettings>): void {
@@ -186,6 +261,10 @@ export class SoundEngine {
       ch.gain.gain.setTargetAtTime(mix[layer] * LEVEL[layer] * duck, t, 0.4);
       ch.pan.pan.setTargetAtTime(pans[layer] ?? 0, t, 0.4);
     }
+    // Music sources only do work while they can be heard.
+    const audible = !this.settings.muted && this.settings.volume > 0;
+    this.bgMusic?.update(audible && this.settings.music && mix.music > 0.02);
+    this.liveMusic?.update(audible && mix.live * this.duck > 0.02);
     this.randomEvents(t);
   }
 
@@ -402,8 +481,6 @@ export class SoundEngine {
     if (name === "chatter") {
       this.loop("market", buf, this.filter("lowpass", 2200));
     }
-    if (name === "livemusic") this.loop("live", buf, this.filter("lowpass", 5000));
-    if (name === "music") this.loop("music", buf);
   }
 
   /** Which files have loaded (for tests and the status line). */

@@ -1,4 +1,3 @@
-import { Application, Graphics } from "pixi.js";
 import type { Endpoint, LedgerEvent, PendingChoice, RegionMap, Tile, World } from "@liag/engine";
 import {
   TICKS_PER_DAY,
@@ -23,23 +22,19 @@ import { Journal, collectGist } from "@liag/narrative";
 import type { Layer, SourcePos } from "../audio/mix";
 import { ambientMix, panFor } from "../audio/mix";
 import { SoundEngine } from "../audio/sound";
-import { Ambient } from "../render/ambient";
-import { Camera, attachGestures } from "../render/camera";
 import type { CityModel } from "../render/city-model";
-import { boxHeight, buildCity, placeAt } from "../render/city-model";
-import { CityView } from "../render/city-view";
-import { PALETTE } from "../render/color";
-import type { Expression } from "../render/encounter-scene";
-import { EncounterScene } from "../render/encounter-scene";
-import { TH, TW, iso, screenToTile } from "../render/iso";
-import { fallbackLook, resolveLook } from "../render/look";
-import { PeopleView } from "../render/people-view";
-import { WeatherView, lightingFor, nightFactor } from "../render/weather-view";
+import { buildCity, placeAt } from "../render/city-model";
+import { nightFactor } from "../render/lighting";
+import { attachGestures } from "../three/camera3d";
+import type { Expression } from "../three/people3d";
+import type { QualityLevel } from "../three/quality";
+import { QUALITY, QUALITY_LEVELS, deviceInfo, loadQuality, saveQuality } from "../three/quality";
+import { View3D } from "../three/view";
 import type { Speed } from "./clock";
 import { Clock } from "./clock";
 import type { Suggestion } from "./guide";
 import { activeQuests, doneSteps, focusPlace, hhmm, nextHint, stepGuide } from "./guide";
-import { feelingKey, resultLines } from "./results";
+import { feelingKey, journalWording, resultLines } from "./results";
 import { PLAYER_ID, type Session } from "./session";
 import { el } from "../ui/dom";
 import { EncounterUi } from "../ui/encounter-ui";
@@ -47,7 +42,7 @@ import type { CoachStep, QuestView, Rect } from "../ui/guide-ui";
 import { GuideUi, PlaceSheet, QuestPanel } from "../ui/guide-ui";
 import { Hud } from "../ui/hud";
 import { GistPanel, PersonCard } from "../ui/panels";
-import { dialogue, money, t } from "../ui/text";
+import { dialogue, hasText, money, t } from "../ui/text";
 
 interface Bubble {
   charId: string;
@@ -81,9 +76,8 @@ export interface GameOptions {
 
 /** The playable prototype: city, people, clock, HUD and encounters wired to one Session. */
 export class Game {
-  private readonly app = new Application();
+  private view!: View3D;
   private readonly clock = new Clock();
-  private readonly camera = new Camera();
   private readonly hud: Hud;
   private readonly gist: GistPanel;
   private readonly card = new PersonCard();
@@ -91,15 +85,18 @@ export class Game {
   private readonly overlay = el("div", { class: "overlay" });
   private readonly placeLabels = new Map<string, HTMLElement>();
   private readonly city: CityModel;
-  private cityView!: CityView;
-  private people!: PeopleView;
-  private ambient!: Ambient;
-  private weather!: WeatherView;
-  private readonly scene = new EncounterScene();
-  private readonly questMarker = new Graphics();
-  private readonly destMarker = new Graphics();
-  private destUntil = 0;
   private journal: Journal;
+  private quality: QualityLevel;
+  private readonly followBtn = el(
+    "button",
+    { class: "btn icon follow-btn", "data-testid": "follow", "aria-pressed": "false" },
+    "🎥",
+  );
+  private fps = 60;
+  private lastFrame = 0;
+  private raf = 0;
+  private focusAt = 0;
+  private lastFocus: string | null | undefined = undefined;
   private inEncounter = false;
   private bubbles: Bubble[] = [];
   private nowMs = 0;
@@ -138,10 +135,14 @@ export class Game {
     this.city = buildCity(map, session.world.content.locations);
     this.journal = this.makeJournal();
     this.sound = new SoundEngine(opts.storage, import.meta.env.BASE_URL);
+    this.quality = loadQuality(opts.storage, deviceInfo());
     this.hud = new Hud({
       setSpeed: (s) => this.setSpeed(s),
-      zoom: (f) => this.camera.zoomAt(f, this.camera.screenW / 2, this.camera.screenH / 2),
+      zoom: (f) => this.view.cam.zoomAt(f, this.view.cam.screenW / 2, this.view.cam.screenH / 2),
       centre: () => this.centreOnPlayer(),
+      rotate: (dir) => this.view.cam.rotateStep(dir),
+      quality: () => this.quality,
+      setQuality: (q) => this.setQuality(q),
       openGist: () => this.openGist(),
       openQuests: () => this.openQuests(),
       showMe: () => this.showMe(),
@@ -161,6 +162,26 @@ export class Game {
       e.stopPropagation();
       this.showMe();
     });
+    this.followBtn.setAttribute("aria-label", t("follow"));
+    this.followBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.sound.ui("tap");
+      this.setFollow(!this.view.following);
+    });
+  }
+
+  private setFollow(on: boolean): void {
+    this.view.setFollow(on);
+    this.followBtn.setAttribute("aria-pressed", String(on));
+    this.hud.toast(on ? t("followOn") : t("followOff"));
+  }
+
+  private setQuality(q: QualityLevel): void {
+    this.quality = q;
+    saveQuality(this.opts.storage, q);
+    this.view.setQuality(QUALITY[q]);
+    this.onResize();
+    this.hud.toast(t("graphicsSet", { level: t(`graphics.${q}`) }));
   }
 
   private get world(): World {
@@ -176,6 +197,7 @@ export class Game {
       playerCharId: this.session.playerCharId,
       verbose: false,
       currency: "₦",
+      ...journalWording(this.session.world, this.session.playerCharId, t, hasText),
     });
   }
 
@@ -193,24 +215,18 @@ export class Game {
       this.guide.root,
     );
     this.overlay.append(this.arrow);
-    const dpr = window.devicePixelRatio || 1;
-    await this.app.init({
-      resizeTo: stage,
-      background: PALETTE.skyDay,
-      antialias: dpr < 2,
-      resolution: Math.min(dpr, 2),
-      autoDensity: true,
-      powerPreference: "high-performance",
-    });
-    stage.append(this.app.canvas);
-
-    this.cityView = new CityView(this.city);
-    this.people = new PeopleView(() => this.world, this.city, this.cityView);
-    this.people.reset();
-    this.ambient = new Ambient(regionMap(this.world.content, REGION)!, this.city, this.cityView);
-    this.weather = new WeatherView((g) => this.app.renderer.generateTexture(g));
-    this.drawMarkers();
-    this.app.stage.addChild(this.cityView.root, this.scene.root, this.weather.root);
+    this.hud.root.append(this.followBtn);
+    const signTexts = Array.from({ length: 16 }, (_, i) => `sign.${i}`)
+      .filter((k) => hasText(k))
+      .map((k) => t(k));
+    this.view = new View3D(
+      stage,
+      this.city,
+      this.map,
+      this.world,
+      QUALITY[this.quality],
+      signTexts,
+    );
 
     for (const p of this.city.places) {
       const label = el("div", { class: "place-label" }, p.name);
@@ -218,26 +234,23 @@ export class Game {
       this.placeLabels.set(p.locationId, label);
     }
 
-    const { width: W, height: H } = this.city;
-    this.camera.bounds = {
-      minX: (-H * TW) / 2,
-      maxX: (W * TW) / 2,
-      minY: 0,
-      maxY: ((W + H) * TH) / 2,
-    };
     // Start zoomed in on Tobi (people are placed once first so the camera finds him).
-    this.camera.zoom = Math.min(1.6, Math.max(1.2, stage.clientWidth / 300));
+    this.view.cam.zoom = Math.min(80, Math.max(58, stage.clientWidth / 6));
     this.onResize();
-    this.people.update(this.shownTick(), 0, false, 0);
+    this.view.frame(this.frameInput(0, 0));
     this.centreOnPlayer(false);
     this.prepareSound();
     window.addEventListener("resize", () => this.onResize());
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.session.save();
     });
-    attachGestures(this.app.canvas, this.camera, {
+    attachGestures(this.view.renderer.domElement, this.view.cam, {
       onTap: (x, y) => this.onTap(x, y),
-      onDoubleTap: () => this.centreOnPlayer(),
+      onDoubleTap: () => (this.view.following ? this.setFollow(false) : this.centreOnPlayer()),
+      onTwist: (dir) => this.view.cam.rotateStep(dir),
+      onDragStart: () => {
+        if (this.view.following) this.setFollow(false);
+      },
     });
     // Sound may only start after a user gesture; any touch also resets the idle timer.
     const touched = (): void => {
@@ -248,7 +261,14 @@ export class Game {
     document.addEventListener("pointerdown", touched, { capture: true });
     document.addEventListener("keydown", touched, { capture: true });
     this.session.onEvents((evs) => this.onEvents(evs));
-    this.app.ticker.add((tk) => this.frame(tk.deltaMS));
+    const loop = (now: number): void => {
+      const dt = this.lastFrame ? Math.min(250, now - this.lastFrame) : 16;
+      this.lastFrame = now;
+      if (dt > 0) this.fps = this.fps * 0.95 + (1000 / dt) * 0.05;
+      this.frame(dt);
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
     this.exposeDebug();
     if (this.opts.isNew) {
       await this.runGuide();
@@ -326,7 +346,6 @@ export class Game {
 
   private frameInner(dtMs: number): void {
     this.nowMs += dtMs;
-    const w = this.world;
     if (!this.inEncounter) {
       const pending = this.session.pending();
       if (pending) this.startEncounter(pending);
@@ -343,24 +362,15 @@ export class Game {
         }
       }
     }
-    const lastTick = Math.max(0, w.tick - 1);
-    const shown = w.tick === 0 ? 0 : lastTick + this.clock.frac;
-    const minute = minuteOfDay(lastTick) + (w.tick === 0 ? 0 : this.clock.frac * 10);
-    const wx = currentWeather(w, REGION);
-    const L = lightingFor(minute, wx);
-    const rain = wx === "rain" || wx === "heavy_rain";
-    const gameDt = this.clock.held || this.clock.speed === 0 ? 0 : (dtMs / 1000) * this.clock.speed;
-
-    this.app.renderer.background.color = L.sky;
-    this.weather.set(wx, L.night);
-    this.weather.update(dtMs / 1000);
+    const input = this.frameInput(
+      dtMs,
+      this.clock.held || this.clock.speed === 0 ? 0 : this.clock.speed,
+    );
+    const minute = input.minute;
+    const wx = input.weather;
+    this.view.frame(input);
+    this.view.render();
     if (!this.inEncounter) {
-      this.cityView.setLighting(L.tint, L.night, this.nowMs);
-      this.ambient.setMood(nightFactor(minute), rain, wx === "heavy_rain");
-      this.ambient.update(gameDt);
-      this.people.update(shown, gameDt, rain, this.nowMs);
-      this.camera.update(dtMs / 1000);
-      this.camera.apply(this.cityView.root);
       this.updateMarkers();
       this.updateOverlay();
       if (this.nowMs - this.arrowAt > 100) {
@@ -369,17 +379,32 @@ export class Game {
       }
       this.maybeHint();
     } else {
-      const heads = this.scene.heads();
-      this.encUi.placeBubbles(heads.left, heads.right);
+      const heads = this.view.encounterHeads();
+      if (heads) this.encUi.placeBubbles(heads.left, heads.right);
     }
     if (this.nowMs - this.hudAt > 150) {
       this.hudAt = this.nowMs;
-      this.updateHud(minute, wx, L.night > 0.5);
+      this.updateHud(minute, wx, this.view.night > 0.5);
     }
     if (this.nowMs - this.soundAt > 250) {
       this.soundAt = this.nowMs;
       this.updateSound(minute, wx);
     }
+  }
+
+  private frameInput(dtMs: number, speed: number): Parameters<View3D["frame"]>[0] {
+    const w = this.world;
+    const lastTick = Math.max(0, w.tick - 1);
+    return {
+      world: w,
+      shownTick: this.shownTick(),
+      dt: dtMs / 1000,
+      gameDt: (dtMs / 1000) * speed,
+      minute: minuteOfDay(lastTick) + (w.tick === 0 ? 0 : this.clock.frac * 10),
+      weather: currentWeather(w, REGION),
+      nowMs: this.nowMs,
+      playerId: PLAYER_ID,
+    };
   }
 
   private updateHud(minute: number, wx: ReturnType<typeof currentWeather>, night: boolean): void {
@@ -418,75 +443,52 @@ export class Game {
   }
 
   private onResize(): void {
-    const r = this.app.canvas.getBoundingClientRect();
-    this.camera.screenW = r.width || window.innerWidth;
-    this.camera.screenH = r.height || window.innerHeight;
-    this.weather.resize(this.camera.screenW, this.camera.screenH);
+    this.view.resize(window.innerWidth, window.innerHeight);
   }
 
-  private playerWorldPos(): { x: number; y: number } {
-    const v = this.people.viewOf(this.me);
-    if (v && (v.visible || v.hiddenBecause === "asleep")) return iso(v.x + 0.5, v.y + 0.5);
+  /** Tobi on the ground (world units). */
+  private playerWorldPos(): { x: number; z: number } {
+    const p = this.view.positionOf(this.me);
+    if (p) return { x: p.x, z: p.z };
     const c = this.world.characters[this.me]!;
-    const map = regionMap(this.world.content, REGION)!;
-    const t0 = placeTile(map, c.locationId) ?? [20, 17];
-    return iso(t0[0] + 0.5, t0[1] + 0.5);
+    const t0 = placeTile(this.map, c.locationId) ?? [20, 17];
+    return { x: t0[0] + 0.5, z: t0[1] + 0.5 };
   }
 
   private centreOnPlayer(smooth = true): void {
     const p = this.playerWorldPos();
-    this.camera.centreOn(p.x, p.y - 20, smooth);
-    if (!smooth) this.camera.apply(this.cityView.root);
+    this.view.cam.centreOn(p.x, p.z, smooth);
+    if (!smooth) this.view.cam.apply();
   }
 
   // ---------------------------------------------------------------------------
   // Markers, labels, bubbles
   // ---------------------------------------------------------------------------
 
-  private drawMarkers(): void {
-    const q = this.questMarker;
-    q.poly([0, -14, 11, 0, 0, 14, -11, 0]).fill(0xffd23f).stroke({ width: 2, color: 0x6b4f00 });
-    q.rect(-1.8, -8, 3.6, 9).fill(0x3d2c00);
-    q.circle(0, 5, 2).fill(0x3d2c00);
-    q.zIndex = 2_000_000;
-    q.visible = false;
-    const d = this.destMarker;
-    d.ellipse(0, 0, 10, 5).stroke({ width: 2, color: 0xffffff });
-    d.rect(-1, -26, 2, 26).fill(0xffffff);
-    d.poly([1, -26, 14, -21, 1, -16]).fill(0xff5d5d);
-    d.zIndex = 1_999_999;
-    d.visible = false;
-    this.cityView.root.addChild(q, d);
-  }
-
   private updateMarkers(): void {
+    // The quest marker follows the guidance (checked a few times a second).
+    if (this.nowMs - this.focusAt < 300) return;
+    this.focusAt = this.nowMs;
     const focus = this.focus();
-    const tile = focus ? placeTile(this.map, focus) : null;
-    this.questMarker.visible = !!tile;
-    if (tile) {
-      const p = iso(tile[0] + 0.5, tile[1] + 0.5);
-      this.questMarker.position.set(p.x, p.y - 74 + Math.sin(this.nowMs / 300) * 5);
+    if (focus !== this.lastFocus) {
+      this.lastFocus = focus;
+      this.view.setQuestMarker(focus);
     }
-    if (this.destMarker.visible && this.nowMs > this.destUntil) this.destMarker.visible = false;
   }
 
   private setDestination(tile: Tile): void {
-    const p = iso(tile[0] + 0.5, tile[1] + 0.5);
-    this.destMarker.position.set(p.x, p.y);
-    this.destMarker.visible = true;
-    this.destUntil = this.nowMs + 60_000;
+    this.view.setDestination(tile, this.nowMs);
   }
 
   private updateOverlay(): void {
-    const showLabels = this.camera.zoom >= 0.5;
+    const city = this.view.cam.mode === "city";
+    const showLabels = city && this.view.cam.zoom >= 22;
     for (const p of this.city.places) {
       const label = this.placeLabels.get(p.locationId)!;
-      const box = this.city.boxes.find((b) => b.locationId === p.locationId);
-      const lift = box ? boxHeight(box) + 18 : 30;
-      const c = iso(p.rect.x + p.rect.w / 2, p.rect.y + p.rect.h / 2);
-      const s = this.camera.worldToScreen(c.x, c.y - lift);
-      label.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, -100%)`;
-      label.hidden = !showLabels;
+      const s = this.view.labelOnScreen(p.locationId);
+      label.hidden = !showLabels || !s || s.behind;
+      if (s && !label.hidden)
+        label.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, -100%)`;
     }
     const now = this.nowMs;
     this.bubbles = this.bubbles.filter((b) => {
@@ -495,8 +497,8 @@ export class Game {
         return false;
       }
       if (now < b.start) return true;
-      const head = this.people.headOf(b.charId);
-      if (!head) {
+      const s = this.view.headOnScreen(b.charId);
+      if (!s) {
         if (b.node) b.node.hidden = true;
         return true;
       }
@@ -505,7 +507,6 @@ export class Game {
         this.overlay.append(b.node);
       }
       b.node.hidden = false;
-      const s = this.camera.worldToScreen(head.x, head.y);
       b.node.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, -100%)`;
       return true;
     });
@@ -513,7 +514,7 @@ export class Game {
 
   private onEvents(events: LedgerEvent[]): void {
     const me = this.me;
-    const mine = this.people.viewOf(me);
+    const mine = this.view.viewOf(me);
     let questSound = false;
     let moneyDelta = 0;
     for (const ev of events) {
@@ -530,11 +531,11 @@ export class Game {
     else if (moneyDelta) this.sound.ui(moneyDelta > 0 ? "moneyUp" : "moneyDown");
     this.walkCacheTick = -1;
     for (const ev of events) {
-      if (ev.type === "arrived" && ev.actors[0] === me) this.destMarker.visible = false;
+      if (ev.type === "arrived" && ev.actors[0] === me) this.view.setDestination(null, this.nowMs);
       if (ev.type !== "encounter_resolved" || ev.actors.includes(me) || !mine) continue;
       // Other people's encounters near you show as little speech bubbles.
       const near = ev.actors.every((id) => {
-        const v = this.people.viewOf(id);
+        const v = this.view.viewOf(id);
         return v && v.visible && Math.abs(v.x - mine.x) + Math.abs(v.y - mine.y) < 18;
       });
       if (!near) continue;
@@ -558,32 +559,13 @@ export class Game {
     if (this.inEncounter || this.guide.open) return;
     this.hud.closePops();
     this.sheet.hide();
-    const w = this.camera.screenToWorld(sx, sy);
-    const hits = this.people.hit(w.x, w.y);
-    if (hits.length) return this.showPerson(hits[0]!);
+    const hit = this.view.pick(sx, sy);
+    if (!hit) return;
+    if (hit.kind === "person") return this.showPerson(hit.id);
     this.card.hide();
-
     // Buildings first (tapping a wall or a roof), then the ground.
-    for (const box of this.city.boxes) {
-      if (!box.locationId) continue;
-      const H = boxHeight(box);
-      const a = iso(box.x, box.y);
-      const b = iso(box.x + box.w, box.y);
-      const c = iso(box.x + box.w, box.y + box.h);
-      const d = iso(box.x, box.y + box.h);
-      const poly = [
-        [a.x, a.y - H],
-        [b.x, b.y - H],
-        [b.x, b.y],
-        [c.x, c.y],
-        [d.x, d.y],
-        [d.x, d.y - H],
-      ] as [number, number][];
-      if (inPolygon(w.x, w.y, poly)) return this.goToPlace(box.locationId);
-    }
-    const g = screenToTile(w.x, w.y);
-    const tx = Math.floor(g.x);
-    const ty = Math.floor(g.y);
+    if (hit.kind === "place") return this.goToPlace(hit.locationId);
+    const [tx, ty] = hit.tile;
     const place = placeAt(this.city, tx, ty);
     if (place) return this.goToPlace(place.locationId);
     const map = regionMap(this.world.content, REGION)!;
@@ -613,7 +595,7 @@ export class Game {
     const c = w.characters[id]!;
     const def = charDef(w, id);
     const status = c.travel
-      ? this.people.viewOf(id)?.visible
+      ? this.view.viewOf(id)?.visible
         ? t("onTheWay")
         : t("riding")
       : c.street
@@ -675,9 +657,6 @@ export class Game {
       id: o.id,
       label: dialogue.option(o.labelKey, vars, p.encounterId),
     }));
-    const lastTick = Math.max(0, w.tick - 1);
-    const minute = minuteOfDay(lastTick);
-    const L = lightingFor(minute, currentWeather(w, REGION));
     const rel = w.relationships[`${other.id}>${this.me}`];
     const rightExpr: Expression =
       p.kind === "opportunity"
@@ -687,21 +666,13 @@ export class Game {
           : p.role === "giver"
             ? "neutral"
             : "surprised";
-    this.cityView.root.visible = false;
+    void meDef;
+    void loc;
+    // Down to street level beside the two of them, where they really are.
     this.hud.root.hidden = true;
     this.overlay.hidden = true;
-    this.scene.show({
-      w: this.camera.screenW,
-      h: this.camera.screenH,
-      placeType: loc.type,
-      placeName: loc.name,
-      sky: L.sky,
-      night: L.night,
-      left: resolveLook(meDef.look ?? fallbackLook(this.me), false),
-      right: resolveLook(otherDef.look ?? fallbackLook(other.id), false),
-      leftExpr: "neutral",
-      rightExpr,
-    });
+    this.view.startEncounter(this.me, other.id);
+    this.view.setExpressions("neutral", rightExpr);
     this.encUi.open(
       caption,
       `${w.characters[this.me]!.name} (${t("you")})`,
@@ -718,16 +689,17 @@ export class Game {
     const resolved = events.find((e) => e.type === "encounter_resolved");
     if (resolved) {
       const [l, r] = outcomeFaces(resolved, this.me);
-      this.scene.setExpressions(l, r);
+      this.view.setExpressions(l, r);
       const parts = this.journal.encounterParts(resolved);
       await this.encUi.play(
         parts.lines.map((x) => ({
           side: x.speakerId === this.me ? "left" : "right",
           text: x.text,
         })),
+        (side) => this.view.setTalking(side === "left" ? "me" : side === "right" ? "other" : null),
       );
     }
-    const items = resultLines(this.world, events, this.me, t, money);
+    const items = resultLines(this.world, events, this.me, t, money, hasText);
     for (const ev of events) {
       if (!ev.type.startsWith("quest_") || !ev.actors.includes(this.me)) continue;
       const g = this.journal.gist(ev);
@@ -738,8 +710,7 @@ export class Game {
 
   private endEncounter(): void {
     this.encUi.close();
-    this.scene.hide();
-    this.cityView.root.visible = true;
+    this.view.endEncounter();
     this.hud.root.hidden = false;
     this.overlay.hidden = false;
     this.inEncounter = false;
@@ -761,7 +732,7 @@ export class Game {
   private playerEndpoint(): Endpoint {
     const c = this.world.characters[this.me]!;
     if (c.travel) {
-      const v = this.people.viewOf(this.me);
+      const v = this.view.viewOf(this.me);
       if (v?.visible) {
         const tile: Tile = [Math.round(v.x), Math.round(v.y)];
         if (isWalkable(this.map, tile)) return { tile };
@@ -794,16 +765,24 @@ export class Game {
     return focusPlace(stepGuide(this.world, this.me, this.minuteNow()));
   }
 
-  private placeCentre(locationId: string): { x: number; y: number } | null {
+  /** Centre of a place on the ground (world units). */
+  private placeCentre(locationId: string): { x: number; z: number } | null {
     const p = this.city.places.find((x) => x.locationId === locationId);
     if (!p) return null;
-    const c = iso(p.rect.x + p.rect.w / 2, p.rect.y + p.rect.h / 2);
-    return { x: c.x, y: c.y - 30 };
+    return { x: p.rect.x + p.rect.w / 2, z: p.rect.y + p.rect.h / 2 };
+  }
+
+  /** On screen (CSS px), at about head height over the place. */
+  private placeScreen(locationId: string): { x: number; y: number; behind: boolean } | null {
+    const c = this.placeCentre(locationId);
+    return c ? this.view.project(c.x, 0.5, c.z) : null;
   }
 
   private panTo(locationId: string): void {
     const c = this.placeCentre(locationId);
-    if (c) this.camera.centreOn(c.x, c.y + 40);
+    if (!c) return;
+    if (this.view.following) this.setFollow(false);
+    this.view.cam.centreOn(c.x, c.z);
   }
 
   private suggestionText(s: Suggestion): string {
@@ -872,14 +851,15 @@ export class Game {
   /** Off-screen target: an arrow at the screen edge pointing at it, with walking minutes. */
   private updateArrow(): void {
     const id = this.focus();
-    const c = id ? this.placeCentre(id) : null;
-    if (!id || !c || this.guide.open || this.clock.fast) {
+    const raw = id ? this.placeScreen(id) : null;
+    if (!id || !raw || this.guide.open || this.clock.fast) {
       this.arrow.hidden = true;
       return;
     }
-    const s = this.camera.worldToScreen(c.x, c.y);
-    const W = this.camera.screenW;
-    const H = this.camera.screenH;
+    const W = this.view.cam.screenW;
+    const H = this.view.cam.screenH;
+    // Behind the street-level camera: point the opposite way, off the bottom edge.
+    const s = raw.behind ? { x: W - raw.x, y: H * 4 } : raw;
     const top = this.hud.targets.quest.getBoundingClientRect().bottom + 8;
     const bottom = H - 70;
     const inside = s.x > 20 && s.x < W - 20 && s.y > top && s.y < bottom;
@@ -1022,7 +1002,9 @@ export class Game {
 
   private updateSound(minute: number, wx: ReturnType<typeof currentWeather>): void {
     if (!this.sound.started) return;
-    const g = screenToTile(this.camera.x, this.camera.y + 20);
+    this.sound.setMusicMode(nightFactor(minute) > 0.6 ? "night" : "day");
+    const f = this.view.cam.focus;
+    const g = { x: f.x - 0.5, y: f.z - 0.5 };
     const lx = Math.max(0, Math.min(this.city.width - 1, Math.floor(g.x)));
     const ly = Math.max(0, Math.min(this.city.height - 1, Math.floor(g.y)));
     const road = this.roadDist[ly * this.city.width + lx] ?? 0;
@@ -1031,7 +1013,7 @@ export class Game {
       minute,
       weather: wx,
       listener,
-      zoom: this.camera.zoom,
+      zoom: this.view.cam.mode === "city" ? this.view.cam.zoom / 48 : 2.5,
       sources: this.soundSources,
       roadDistance: Math.max(0, road),
     });
@@ -1050,12 +1032,11 @@ export class Game {
 
   private playerScreen(): { x: number; y: number } {
     const p = this.playerWorldPos();
-    return this.camera.worldToScreen(p.x, p.y - 20);
+    return this.view.project(p.x, 0.32, p.z);
   }
 
   private tileScreen(tx: number, ty: number): { x: number; y: number } {
-    const p = iso(tx + 0.5, ty + 0.5);
-    return this.camera.worldToScreen(p.x, p.y);
+    return this.view.project(tx + 0.5, 0.05, ty + 0.5);
   }
 
   /** A sidewalk tile just outside Tobi's door (for the "tap the street" coach mark). */
@@ -1097,7 +1078,7 @@ export class Game {
           inEncounter: this.inEncounter,
           weather: currentWeather(this.world, REGION),
           speed: this.clock.speed,
-          fps: Math.round(this.app.ticker.FPS),
+          fps: Math.round(this.fps),
           frameMs: Math.round(this.frameCost * 100) / 100,
           day: dayNumber(Math.max(0, this.world.tick - 1)),
           guideOpen: this.guide.open,
@@ -1107,29 +1088,35 @@ export class Game {
           fast: this.clock.fast,
           focus: this.focus(),
           sound: this.sound.started ? this.sound.loaded() : null,
+          music: this.sound.started ? this.sound.musicKind : null,
+          camera: this.view.cam.mode,
+          quality: this.quality,
+          ...this.view.stats(),
         };
       },
+      setFollow: (on: boolean) => this.setFollow(on),
+      setQuality: (q: QualityLevel) => this.setQuality(q),
+      rotate: (dir: 1 | -1) => this.view.cam.rotateStep(dir),
+      qualityLevels: QUALITY_LEVELS,
       /** Screen position of the place the guidance points at (null if none). */
       focusScreen: () => {
         const id = this.focus();
-        const c = id ? this.placeCentre(id) : null;
-        return c ? this.camera.worldToScreen(c.x, c.y) : null;
+        return id ? this.placeScreen(id) : null;
       },
       hint: () => this.currentHint(),
-      cameraZoom: () => this.camera.zoom,
+      cameraZoom: () => this.view.cam.zoom,
       /** Screen position of a tile's centre (CSS px), for tapping in tests. */
-      tileToScreen: (tx: number, ty: number) => {
-        const p = iso(tx + 0.5, ty + 0.5);
-        return this.camera.worldToScreen(p.x, p.y);
-      },
+      tileToScreen: (tx: number, ty: number) => this.tileScreen(tx, ty),
       playerScreen: () => this.playerScreen(),
+      /** `zoom` 1 = the old default scale (48 px per tile). */
       centreOnTile: (tx: number, ty: number, zoom?: number) => {
-        if (zoom) this.camera.zoom = zoom;
-        const p = iso(tx + 0.5, ty + 0.5);
-        this.camera.centreOn(p.x, p.y, false);
+        if (this.view.following) this.setFollow(false);
+        if (zoom) this.view.cam.zoom = zoom * 48;
+        this.view.cam.centreOn(tx + 0.5, ty + 0.5, false);
+        this.view.cam.apply();
       },
       centrePlayer: (zoom?: number) => {
-        if (zoom) this.camera.zoom = zoom;
+        if (zoom) this.view.cam.zoom = zoom * 48;
         this.centreOnPlayer(false);
       },
       setSpeed: (s: Speed) => this.setSpeed(s),
@@ -1148,20 +1135,25 @@ export class Game {
         this.clock.reset();
         this.session.save();
       },
+      /** Jump ahead (autopilot) to the first rainy night, for screenshots and checks. */
+      runToRainyNight: (maxDays = 20) => {
+        const pl = this.world.players[PLAYER_ID]!;
+        pl.autopilot = true;
+        const end = this.world.tick + maxDays * TICKS_PER_DAY;
+        const wet = (): boolean => {
+          const wx = currentWeather(this.world, REGION);
+          const m = minuteOfDay(Math.max(0, this.world.tick - 1));
+          return (wx === "rain" || wx === "heavy_rain") && m >= 19 * 60 + 40 && m < 22 * 60;
+        };
+        while (this.world.tick < end && !wet()) stepTick(this.world);
+        pl.autopilot = false;
+        this.clock.reset();
+        return wet();
+      },
       ticksPerDay: TICKS_PER_DAY,
     };
     (window as unknown as { __liag: typeof api }).__liag = api;
   }
-}
-
-function inPolygon(x: number, y: number, poly: [number, number][]): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]!;
-    const [xj, yj] = poly[j]!;
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
 }
 
 function nearestWalkable(

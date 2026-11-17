@@ -1,6 +1,8 @@
 import type { WeatherKind } from "@liag/engine";
 import type { Speed } from "../game/clock";
 import type { SoundSettings } from "../audio/sound";
+import type { QualityLevel } from "../three/quality";
+import { QUALITY_LEVELS } from "../three/quality";
 import { el } from "./dom";
 import { weatherIcon } from "./icons";
 import { UI_PLACEHOLDER, money, t } from "./text";
@@ -23,6 +25,10 @@ export interface HudActions {
   setSpeed(s: Speed): void;
   zoom(f: number): void;
   centre(): void;
+  /** Turn the city view a quarter (+1 clockwise). */
+  rotate(dir: 1 | -1): void;
+  quality(): QualityLevel;
+  setQuality(q: QualityLevel): void;
   openGist(): void;
   openQuests(): void;
   showMe(): void;
@@ -201,9 +207,21 @@ export class Hud {
         },
         label,
       );
+    const gfx = el("button", { class: "btn wide", "data-testid": "menu-graphics" });
+    const gfxLabel = (): string => `${t("menu.graphics")}: ${t(`graphics.${actions.quality()}`)}`;
+    gfx.textContent = gfxLabel();
+    gfx.addEventListener(
+      "click",
+      press(() => {
+        const i = QUALITY_LEVELS.indexOf(actions.quality());
+        actions.setQuality(QUALITY_LEVELS[(i + 1) % QUALITY_LEVELS.length]!);
+        gfx.textContent = gfxLabel();
+      }),
+    );
     this.menuPop = el(
       "div",
       { class: "pop pop-top", hidden: true },
+      gfx,
       item(t("menu.guide"), () => actions.replayGuide(), "menu-guide"),
       item(t("menu.quests"), () => actions.openQuests(), "menu-quests"),
       item(t("menu.title"), () => actions.backToTitle(), "menu-title"),
@@ -245,6 +263,8 @@ export class Hud {
       zb("+", t("zoomIn"), () => actions.zoom(1.35), "zoom-in"),
       zb("◎", t("centre"), () => actions.centre(), "centre"),
       zb("−", t("zoomOut"), () => actions.zoom(1 / 1.35), "zoom-out"),
+      zb("⟲", t("rotateLeft"), () => actions.rotate(-1), "rotate-left"),
+      zb("⟳", t("rotateRight"), () => actions.rotate(1), "rotate-right"),
     );
     const timeCtl = el(
       "div",

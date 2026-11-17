@@ -5,7 +5,7 @@ import { loadContent } from "@liag/content";
 import { Clock, MS_PER_TICK } from "../src/game/clock";
 import { feelingKey, resultLines } from "../src/game/results";
 import { Session, type Storage } from "../src/game/session";
-import { lightingFor, nightFactor } from "../src/render/weather-view";
+import { lightingFor, nightFactor, sunAt } from "../src/render/lighting";
 
 class MemStore implements Storage {
   m = new Map<string, string>();
@@ -133,5 +133,11 @@ describe("lighting", () => {
     expect(lightingFor(12 * 60, "heavy_rain").night).toBeGreaterThan(
       lightingFor(12 * 60, "dry").night,
     );
+    // The sun rises in the east (+x), is high at noon, sets in the west; weak moonlight at night.
+    expect(sunAt(7 * 60, "dry").dir[0]).toBeGreaterThan(0.5);
+    expect(sunAt(12 * 60 + 15, "dry").dir[1]).toBeGreaterThan(0.85);
+    expect(sunAt(18 * 60, "dry").dir[0]).toBeLessThan(-0.5);
+    expect(sunAt(2 * 60, "dry").strength).toBeLessThan(0.2);
+    expect(sunAt(12 * 60, "heavy_rain").strength).toBeLessThan(sunAt(12 * 60, "dry").strength);
   });
 });

@@ -1,3 +1,4 @@
+import { layoutBubbles } from "./bubbles";
 import { clear, el } from "./dom";
 import { t } from "./text";
 
@@ -19,6 +20,8 @@ export class EncounterUi {
   private readonly choices = el("div", { class: "choices", "data-testid": "choices" });
   private readonly result = el("div", { class: "result", hidden: true, "data-testid": "result" });
   private advance: (() => void) | null = null;
+  /** Who spoke last: their bubble keeps its place, the other one moves out of the way. */
+  private lastSide: "left" | "right" = "right";
 
   constructor() {
     this.root.append(
@@ -74,14 +77,16 @@ export class EncounterUi {
   }
 
   /** Show the lines one by one (tap to skip ahead). */
-  async play(lines: Line[]): Promise<void> {
+  async play(lines: Line[], onLine?: (side: Line["side"] | null) => void): Promise<void> {
     for (const l of lines) {
+      onLine?.(l.side);
       const b = l.side === "left" ? this.bubbleL : this.bubbleR;
       const other = l.side === "left" ? this.bubbleR : this.bubbleL;
       other.classList.add("faded");
       b.classList.remove("faded");
       b.textContent = l.text;
       b.hidden = false;
+      this.lastSide = l.side;
       await new Promise<void>((resolve) => {
         const timer = setTimeout(done, 1400 + l.text.length * 35);
         function done(): void {
@@ -92,6 +97,7 @@ export class EncounterUi {
       });
       this.advance = null;
     }
+    onLine?.(null);
   }
 
   showResult(items: string[], onOk: () => void): void {
@@ -111,17 +117,34 @@ export class EncounterUi {
   }
 
   placeBubbles(left: { x: number; y: number }, right: { x: number; y: number }): void {
-    // Keep each bubble on screen: on a narrow phone the heads sit near the edges.
-    const W = window.innerWidth;
-    const place = (b: HTMLElement, p: { x: number; y: number }): void => {
-      const half = (b.offsetWidth || 200) / 2;
-      const x = Math.max(half + 8, Math.min(W - half - 8, p.x));
-      b.style.left = `${x}px`;
-      b.style.top = `${p.y}px`;
-      b.style.setProperty("--tail", `${Math.round(p.x - x)}px`);
-    };
-    place(this.bubbleL, left);
-    place(this.bubbleR, right);
+    // Never overlapping: the newest bubble stays over its speaker, the older one moves away.
+    const shown = (
+      [
+        ["left", this.bubbleL, left],
+        ["right", this.bubbleR, right],
+      ] as const
+    ).filter(([, b]) => !b.hidden);
+    shown.sort(([a], [b]) => (a === this.lastSide ? 1 : 0) - (b === this.lastSide ? 1 : 0));
+    const minTop = this.caption.getBoundingClientRect().bottom + 8;
+    const rects = layoutBubbles(
+      shown.map(([, b, p]) => ({
+        anchorX: p.x,
+        anchorY: p.y,
+        w: b.offsetWidth || 200,
+        h: b.offsetHeight || 60,
+      })),
+      window.innerWidth,
+      minTop,
+    );
+    shown.forEach(([, b, p], i) => {
+      const r = rects[i]!;
+      b.style.left = `${Math.round(r.left)}px`;
+      b.style.top = `${Math.round(r.top)}px`;
+      const tail = p.x - r.left;
+      const above = Math.abs(r.top + r.h + 10 - p.y) < 4;
+      b.classList.toggle("no-tail", !above || tail < 14 || tail > r.w - 14);
+      b.style.setProperty("--tail-x", `${Math.round(tail)}px`);
+    });
   }
 
   close(): void {

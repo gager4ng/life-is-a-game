@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Browser prototype: a code-drawn isometric Yaba running the engine in the page.",
+  "description": "Browser prototype: a low-poly 3D Yaba, built in code, running the engine in the page.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -17,10 +17,11 @@
     "@liag/content": "workspace:*",
     "@liag/engine": "workspace:*",
     "@liag/narrative": "workspace:*",
-    "pixi.js": "^8.23.0"
+    "three": "0.170.0"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",
+    "@types/three": "0.170.0",
     "vite": "^8.3.8"
   }
 }

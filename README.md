@@ -2,8 +2,9 @@
 
 A living-world life simulation set in Nigeria. This repository holds **roadmap step 1** (a
 text-only proof of the encounter engine and the event ledger), **roadmap step 2** (a playable
-browser prototype of Yaba, a code-drawn isometric city running that engine in the page) and
-**roadmap step 3**: a first-play experience with a guided start, "what next" guidance and sound.
+browser prototype of Yaba running that engine in the page), **roadmap step 3** (a first-play
+experience with a guided start, "what next" guidance and sound) and **roadmap step 4**: Yaba as a
+low-poly 3D city built in code (Three.js), with Afrobeats-style music generated in code.
 
 People in a small slice of Lagos live their routines in 10-minute ticks. When schedules, places
 and circumstances overlap (rain holding everyone at the danfo park, the lunch rush at the buka,
@@ -52,15 +53,33 @@ How to play:
   appears. **📜 Quests** lists your quests, the step you're on, what's done and deadlines.
 - **Tap a place or a spot on the street** and Tobi walks there along the streets. You can only go
   to places you know the way to. Ask around, and people may tell you.
-- **Drag** to look around, **pinch** (or 🔍 then + / −) to zoom, **double-tap** (or 🔍 then ◎) to
-  find Tobi.
+- **Drag** to look around, **pinch** (or 🔍 then + / −) to zoom, **twist two fingers** (or 🔍 then
+  ⟲ ⟳) to turn the view a quarter, **double-tap** (or 🔍 then ◎) to find Tobi.
+- **🎥 Follow Tobi**: a street-level camera that walks behind him. Drag or double-tap to go back
+  to the city view. When someone talks to you, the camera comes down beside the two of you.
+- **☰ → Graphics**: Low / Medium / High. Phones start on Low (aim: 30 fps or better).
 - **Tap anyone** to see who they are and how they feel about you.
 - Time runs on its own: **1x** is 10 game minutes every 3 seconds. ❚❚ pauses; the speed button
   cycles 1x, 2x and 4x. Nights skip quickly while Tobi sleeps. Time stops by itself when someone
   talks to you. Pick a reply; afterwards a card shows what changed.
 - **Gist** shows what has been happening around Yaba, and why.
-- **Sound** starts with your first tap. 🔊 has sound on/off, volume and music on/off. Sources
-  of the few sound files are in `docs/ASSETS.md`.
+- **Sound** starts with your first tap. 🔊 has sound on/off, volume and music on/off. The music is
+  an Afrobeats-style groove generated in code (calmer at night, a live band at Bluelight in the
+  evening). Sources of the few sound files are in `docs/ASSETS.md`.
+
+### Music: using licensed tracks
+
+Put the audio files (mp3, ogg or m4a) in `apps/web/public/music/` and list their file names in
+`apps/web/public/music/tracks.json`:
+
+```json
+{ "day": ["street-groove.mp3"], "night": ["late-night.mp3"], "live": ["band-set.mp3"] }
+```
+
+Listed tracks replace the generated music for that mode (night falls back to the day list;
+any empty mode keeps the generated groove). No code change or rebuild of the logic is needed;
+just restart `pnpm dev` or rebuild. Record each track's licence in `docs/ASSETS.md`.
+
 - The game saves itself in the browser (one slot). **Continue** or **New game** on the title
   screen. `?seed=42` in the address starts a fixed world.
 
@@ -114,7 +133,8 @@ SHOTS=1 pnpm e2e # also retake docs/screenshots at phone size
 ```
 
 Screenshots: `docs/screenshots/01-day-street.png`, `02-night-rain.png`, `03-encounter.png`,
-`04-gist.png`, `05-guided-start.png`, `06-show-me-arrow.png`.
+`04-gist.png`, `05-guided-start.png`, `06-show-me-arrow.png`, `07-follow-tobi.png`.
+`PERF=1 pnpm e2e` prints the frame rate on Low (real GPU, CPU slowed 4x).
 
 ## Layout
 
@@ -124,8 +144,9 @@ packages/content   zod-validated JSON content: regions, street maps, places, cha
                    their looks), quests, world events, placeholder dialogue and UI wording.
 packages/narrative Turns the ledger into readable text (journal, Gist feed). Shared.
 apps/sim           The CLI: journal and interactive mode.
-apps/web           The browser prototype (Vite + PixiJS): city, people, HUD, encounters,
-                   guidance (game/guide.ts) and sound (audio/).
+apps/web           The browser prototype (Vite + Three.js): the 3D city, people and cameras
+                   (three/), HUD and encounters (ui/), guidance (game/guide.ts), sound and the
+                   generated music (audio/).
 docs/DECISIONS.md  Decision log (G-001 onwards).
 docs/PROGRESS.md   What's done, what's next, what needs approval.
 docs/ASSETS.md     Third-party files (a few CC0 sounds) with source and licence.

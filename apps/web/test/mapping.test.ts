@@ -11,7 +11,7 @@ import type { World } from "@liag/engine";
 import { loadContent } from "@liag/content";
 import { buildCity, placeAt, spotFor } from "../src/render/city-model";
 import { facingOf, personView, tripProgress } from "../src/render/people-model";
-import { entityZ, iso, screenToTile } from "../src/render/iso";
+import { angleDiff, buildingHeight, tileCentre, worldToTile, yawFor } from "../src/three/coords";
 
 const content = loadContent();
 const map = regionMap(content, "lagos")!;
@@ -24,20 +24,23 @@ function world(): World {
   });
 }
 
-describe("iso projection", () => {
-  it("round-trips screen and tile positions", () => {
+describe("3D coordinates", () => {
+  it("maps tiles to world units and back, and turns figures the way they walk", () => {
     for (const [x, y] of [
       [0, 0],
-      [3.5, 7.25],
+      [3, 7],
       [40, 2],
     ] as const) {
-      const p = iso(x, y);
-      const back = screenToTile(p.x, p.y);
-      expect(back.x).toBeCloseTo(x);
-      expect(back.y).toBeCloseTo(y);
+      const c = tileCentre(x, y);
+      expect(worldToTile(c.x, c.z)).toEqual({ tx: x, ty: y });
     }
-    // Things further down the screen are drawn later.
-    expect(entityZ(5, 5)).toBeGreaterThan(entityZ(5, 4));
+    // Figures are built facing +z: walking +z is yaw 0, +x a quarter turn.
+    expect(yawFor(0, 1)).toBeCloseTo(0);
+    expect(yawFor(1, 0)).toBeCloseTo(Math.PI / 2);
+    expect(angleDiff(3, -3)).toBeCloseTo(2 * Math.PI - 6);
+    expect(buildingHeight({ style: { floors: 3 } } as never)).toBeGreaterThan(
+      buildingHeight({ style: { floors: 1 } } as never),
+    );
   });
 });
 

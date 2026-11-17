@@ -1,0 +1,6 @@
+{
+  "$comment": "Licensed music goes here: put the audio files in this folder and list their file names per mode. Empty lists = the generated Afrobeats-style groove. See README (Music).",
+  "day": [],
+  "night": [],
+  "live": []
+}

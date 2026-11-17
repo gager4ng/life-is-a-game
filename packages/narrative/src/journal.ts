@@ -23,6 +23,13 @@ export interface JournalOptions {
   focus?: boolean;
   /** Currency sign for amounts (the CLI uses "N", the browser "\u20a6"). */
   currency?: string;
+  /**
+   * Readable wording for a flag someone gained, or null to leave it out. Without it the id is
+   * shown (fine for the CLI, which is a debugging tool; the browser always passes wording).
+   */
+  flagText?: (flag: string, whoId: string) => string | null;
+  /** Readable wording for a goal someone reached, or null to leave it out. */
+  goalText?: (goalId: string, whoId: string) => string | null;
 }
 
 /** One item for a feed such as the browser's Gist panel. */
@@ -468,9 +475,13 @@ export class Journal {
         case "memory":
           if (!brief) other.push(`${this.world.characters[e.who]?.name} will remember this`);
           break;
-        case "flag":
-          other.push(`${this.world.characters[e.who]?.name} gained "${e.flag}"`);
+        case "flag": {
+          const txt = this.opts.flagText
+            ? this.opts.flagText(e.flag, e.who)
+            : `${this.world.characters[e.who]?.name} gained "${e.flag}"`;
+          if (txt) other.push(txt);
           break;
+        }
         case "knows_location":
           other.push(
             `${this.world.characters[e.who]?.name} now knows the way to ${this.place(e.locationId)}`,
@@ -479,9 +490,13 @@ export class Journal {
         case "debt":
           if (e.status === "open") other.push(`debt ${this.money(e.amount)} recorded`);
           break;
-        case "goal":
-          other.push(`${this.world.characters[e.who]?.name} achieved goal "${e.goalId}"`);
+        case "goal": {
+          const txt = this.opts.goalText
+            ? this.opts.goalText(e.goalId, e.who)
+            : `${this.world.characters[e.who]?.name} achieved goal "${e.goalId}"`;
+          if (txt) other.push(txt);
           break;
+        }
         default:
           break;
       }

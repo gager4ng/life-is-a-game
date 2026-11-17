@@ -15,6 +15,11 @@ export interface LiagState {
   focus: string | null;
   asleep: boolean;
   fast: boolean;
+  camera: "city" | "follow" | "encounter";
+  calls: number;
+  triangles: number;
+  fps: number;
+  quality: string;
 }
 
 type Api = {
@@ -28,6 +33,10 @@ type Api = {
   playerScreen(): { x: number; y: number };
   focusScreen(): { x: number; y: number } | null;
   hint(): string | null;
+  runToRainyNight(maxDays?: number): boolean;
+  setFollow(on: boolean): void;
+  setQuality(q: string): void;
+  rotate(dir: 1 | -1): void;
 };
 
 declare global {

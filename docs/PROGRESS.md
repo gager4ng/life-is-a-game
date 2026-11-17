@@ -1,5 +1,94 @@
 # Progress
 
+## Roadmap step 4 ("G-004" in the brief): low-poly 3D city, Afrobeats-style music, bug fixes. **Done (2026-11-17)**
+
+Decisions for this step are G-027 to G-031 in `docs/DECISIONS.md`.
+
+### Fixed (from the owner's phone test)
+
+- **Result card ids:** the card no longer shows internal ids such as "New lead: welcome ada".
+  - Every line comes from readable placeholder wording; bookkeeping flags are hidden.
+  - A new test fails if any id-shaped text reaches the card or the Gist. It found a second leak
+    in the Gist's "Changed" line, which is fixed too.
+- **Overlapping bubbles:** speech bubbles in encounters never overlap; the older one moves out
+  of the way.
+
+### Built
+
+- **3D Yaba** (Three.js, all built in code):
+  - **Layout:** the same streets, places and engine.
+  - **City:**
+    - low-poly Lagos buildings with water tanks, AC units, shop shutters and signboards
+    - streetlights, trees, zebra crossings
+  - **Places:** buka canopy and pots, market stalls and umbrellas, danfo park, live-spot stage
+    with moving lights, polytechnic gate and arch, compound walls and clotheslines.
+  - **Traffic:** danfos, keke and okada drive the roads.
+  - **People:** built from primitives with each character's look; they walk, talk and wave,
+    and have four expressions.
+- **Cameras:**
+  - Angled city view: pan, pinch, twist or ⟲ ⟳ to turn in 90° steps.
+  - **Follow Tobi** (🎥) at street level.
+  - Encounters at street level at the real spot, with the same buttons, bubbles and result
+    card.
+- **Light:** a moving sun, warm dawn and dusk, lit windows and streetlights at night, rain with
+  wet shiny roads, harmattan fog.
+- **Graphics setting** (Low / Medium / High) in the ☰ menu. It defaults to Low on phones.
+- **Music:**
+  - An Afrobeats-style groove generated in code: log drum, shaker, bell, bass, chords and light
+    percussion at 100–108 BPM, with variations.
+  - A calmer night version, and a fuller groove at the live spot that is louder in the evening.
+  - A drop-in folder for licensed tracks: `apps/web/public/music/` plus `tracks.json`.
+- **Tests:**
+  - Engine: 36 (unchanged; determinism unchanged). Content: 5. Narrative: 1. CLI: 8.
+  - Browser unit tests: 38. New ones cover the raw-key guard, bubble layout, the music
+    sequencer's timing and variation, graphics defaults, the sun and the 3D coordinates.
+  - **Playwright smoke test in 3D:**
+    - the WebGL city draws in a handful of draw calls
+    - morning start on Tobi
+    - skipping the guide
+    - the street-level encounter, with its result card read on screen
+    - tap to walk
+    - the edge arrow and "Show me"
+    - Follow Tobi and turning the view
+    - the Gist
+  - `PERF=1 pnpm e2e` measures the frame rate.
+- **Screenshots** (Pixel 7 size, 3D), in `docs/screenshots/`:
+  - `01-day-street.png`
+  - `02-night-rain.png`
+  - `03-encounter.png`
+  - `04-gist.png`
+  - `05-guided-start.png`
+  - `06-show-me-arrow.png`
+  - `07-follow-tobi.png`
+
+### Frame rate (Low)
+
+- On the laptop's integrated GPU, Pixel 7 screen size, CPU slowed 4×: 59–60 fps in the city
+  view, Follow Tobi and a rainy night, with 21–23 draw calls.
+- Headless software rendering: about 25 fps.
+- **Not yet measured on a real phone.**
+
+### Needs the owner's approval before anything ships
+
+- New wording in `ui/web.json`:
+  - flag lines (`flag.*`)
+  - shop sign names (`sign.*`)
+  - Follow, rotate, Graphics and "what changed" phrases
+- The look of the 3D city and people.
+- The generated music, which stands in until licensed tracks arrive.
+
+### Known limitations / candidates for the next step
+
+- **Real phone test:** the GPU on a mid-range Android is the open question. If Low is not
+  smooth, the next levers are fewer windows and props, a shorter view distance, and a lower
+  pixel ratio.
+- **Faces:** they are tiny boxes, readable at street level but not in the city view.
+- **Graphics changes:** switching Graphics changes resolution and crowd size at once; shadows
+  and smoothing need a reload.
+- **Follow camera:** it may clip into a wall when Tobi turns a tight corner beside a building (not seen in testing, but nothing prevents it yet).
+- **Music:** the generated groove is a sketch made in code; licensed tracks will replace it.
+- **Conductors' calls:** still the CC0 crowd clip, as before.
+
 ## Roadmap step 3 ("G-003" in the brief): first-play experience, guidance and sound. **Done (2026-11-17)**
 
 Decisions for this step are G-021 to G-026 in `docs/DECISIONS.md`.

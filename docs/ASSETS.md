@@ -1,25 +1,42 @@
 # Third-party assets
 
-Everything visual is drawn in code. The only third-party files are a few sounds, all
+Everything visual is built in code: the 3D city, people, vehicles and signs are geometry and
+canvas-drawn text made at start-up, with no model or texture files. The only third-party files
+are a few sounds, all
 **CC0 (public domain dedication)**, downloaded from OpenGameArt.org on 2026-11-17. They live
 in `apps/web/public/audio/` and are fetched only after the city is on screen (and only once
-sound has been switched on by the first tap). Total: about **0.8 MB**.
+sound has been switched on by the first tap). Total: about **0.4 MB**.
 
 Each file was trimmed, mixed down and re-encoded with ffmpeg as Ogg Vorbis (smaller,
 loudness-normalised). The ambience loops also got a 1-second self-crossfade so they loop
 without a click.
 
-| File in the repo      | Used for                                                         | Original file, author                                                  | Source page                                                        | Licence                                          | Changes                                                         |
-| --------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------------------- |
-| `audio/traffic.ogg`   | Traffic hum                                                      | `gatve Varniu_2.ogg`, IgnasD                                           | https://opengameart.org/content/high-traffic-road-sounds           | CC0                                              | First 30 s, mono 32 kHz, loop crossfade, normalised             |
-| `audio/chatter.ogg`   | Market chatter; short bursts as voices calling at the danfo park | `crowd_shouting.ogg`, StarNinjas                                       | https://opengameart.org/content/crowd-shoutingspeaking-ambience    | CC0                                              | Mono 32 kHz, loop crossfade, normalised; low-passed in the game |
-| `audio/horn1.ogg`     | Car horns                                                        | `Car_Horn.ogg` (Car Sound Effects Pack), GGBotNet                      | https://opengameart.org/content/car-sound-effects-pack-low-quality | CC0                                              | Mono 32 kHz, normalised                                         |
-| `audio/horn2.ogg`     | Car horns                                                        | `car2.wav`, Yaroslav_Novikov                                           | https://opengameart.org/content/car-signal                         | CC0                                              | Mono 32 kHz, normalised                                         |
-| `audio/music.ogg`     | Background music loop                                            | `feel_good_island_loop.ogg`, Brandon Morris (loop edit by AntumDeluge) | https://opengameart.org/content/feel-good-island-loop              | CC0 (dual-licensed OGA-BY 3.0 / CC0; we use CC0) | Normalised, re-encoded                                          |
-| `audio/livemusic.ogg` | Live music from the live spot in the evening                     | `Tropical.wav`, wipics                                                 | https://opengameart.org/content/tropical-loop                      | CC0                                              | Mono 32 kHz, normalised, re-encoded                             |
+| File in the repo    | Used for                                                         | Original file, author                             | Source page                                                        | Licence | Changes                                                         |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------ | ------- | --------------------------------------------------------------- |
+| `audio/traffic.ogg` | Traffic hum                                                      | `gatve Varniu_2.ogg`, IgnasD                      | https://opengameart.org/content/high-traffic-road-sounds           | CC0     | First 30 s, mono 32 kHz, loop crossfade, normalised             |
+| `audio/chatter.ogg` | Market chatter; short bursts as voices calling at the danfo park | `crowd_shouting.ogg`, StarNinjas                  | https://opengameart.org/content/crowd-shoutingspeaking-ambience    | CC0     | Mono 32 kHz, loop crossfade, normalised; low-passed in the game |
+| `audio/horn1.ogg`   | Car horns                                                        | `Car_Horn.ogg` (Car Sound Effects Pack), GGBotNet | https://opengameart.org/content/car-sound-effects-pack-low-quality | CC0     | Mono 32 kHz, normalised                                         |
+| `audio/horn2.ogg`   | Car horns                                                        | `car2.wav`, Yaroslav_Novikov                      | https://opengameart.org/content/car-signal                         | CC0     | Mono 32 kHz, normalised                                         |
 
 Credit is not required under CC0, but the authors are named here anyway (StarNinjas asks for a
 link to their profile if possible: https://opengameart.org/users/starninjas).
+
+Removed in G-004: `audio/music.ogg` (Feel Good Island loop, CC0) and `audio/livemusic.ogg`
+(Tropical loop, CC0). The music is now generated in code (below).
+
+## Music
+
+The background music and the live spot's band are an Afrobeats-style groove generated with Web
+Audio (`apps/web/src/audio/groove.ts` and `music.ts`): log drum, kick, shaker, bell, rim, bass,
+chords and percussion, synthesised. No samples or files.
+
+Licensed tracks can be dropped into `apps/web/public/music/` and listed in `tracks.json` (see
+the README). **Log every licensed track here** with its title, artist or producer, licence,
+the date and the proof of licence.
+
+| File in `public/music/` | Mode | Title, artist / producer | Licence and proof | Date |
+| ----------------------- | ---- | ------------------------ | ----------------- | ---- |
+| (none yet)              |      |                          |                   |      |
 
 ## Made in code (no files)
 

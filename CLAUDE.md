@@ -25,8 +25,8 @@ This repo is separate from Gist365. Design reference: the owner's design doc v1.
   events, placeholder dialogue). New regions are data only.
 - `packages/narrative`: turns ledger events into text (journal, Gist feed); shared by both apps.
 - `apps/sim`: the CLI (`pnpm sim …`) that runs the world and prints a journal.
-- `apps/web`: the browser prototype (Vite + PixiJS 8). Everything is drawn in code: no image
-  files. Placeholder UI wording lives in `packages/content/src/ui/web.json`. The only third-party
+- `apps/web`: the browser prototype (Vite + Three.js, low-poly 3D). Everything is built in
+  code: no image, model or texture files. Placeholder UI wording lives in `packages/content/src/ui/web.json`. The only third-party
   files are small CC0 sounds in `apps/web/public/audio/`; log every one in `docs/ASSETS.md`.
 
 ## Commands

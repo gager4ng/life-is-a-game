@@ -3,6 +3,9 @@ import { getLocation } from "@liag/engine";
 
 export type Say = (key: string, vars?: Record<string, string | number>) => string;
 
+/** Bookkeeping flags that never mean anything to the player (e.g. "this scene has played"). */
+export const HIDDEN_FLAG = /^scene:/;
+
 const DIMS_SHOWN = ["trust", "warmth", "respect", "tension"] as const;
 
 /**
@@ -16,6 +19,7 @@ export function resultLines(
   meId: string,
   say: Say,
   money: (n: number) => string,
+  known: (key: string) => boolean = () => true,
 ): string[] {
   const out: string[] = [];
   const rel = new Map<string, Map<string, number>>();
@@ -57,8 +61,9 @@ export function resultLines(
         }
         break;
       case "flag":
-        if (e.who === meId)
-          add(say("fx.flag", { flag: e.flag.replace(/^[a-z]+:/, "").replace(/_/g, " ") }));
+        // Flags are internal ids: show only the readable line content gives them (never the id).
+        if (e.who === meId && !HIDDEN_FLAG.test(e.flag) && known(`flag.${e.flag}`))
+          add(say(`flag.${e.flag}`));
         break;
       case "debt": {
         const d = world.debts.find((x) => x.id === e.debtId);
@@ -85,6 +90,30 @@ export function resultLines(
   if (moneyDelta !== 0) out.unshift(`${moneyDelta > 0 ? "+" : "−"}${money(Math.abs(moneyDelta))}`);
   if (Math.round(mood) !== 0) add(say(mood > 0 ? "fx.mood.up" : "fx.mood.down"));
   return out;
+}
+
+/**
+ * Wording hooks for the shared journal (Gist "what changed"): readable placeholder text for
+ * flags and goals, never their ids; bookkeeping flags and flags with no wording are left out.
+ */
+export function journalWording(
+  world: World,
+  meId: string,
+  say: Say,
+  known: (key: string) => boolean,
+): {
+  flagText: (flag: string, whoId: string) => string | null;
+  goalText: (goalId: string, whoId: string) => string | null;
+} {
+  const name = (id: string): string => world.characters[id]?.name ?? "";
+  return {
+    flagText: (flag, who) => {
+      if (HIDDEN_FLAG.test(flag) || !known(`flag.${flag}`)) return null;
+      return who === meId ? say(`flag.${flag}`) : say("fx.flagOther", { name: name(who) });
+    },
+    goalText: (_goal, who) =>
+      who === meId ? say("fx.goalMine") : say("fx.goalOther", { name: name(who) }),
+  };
 }
 
 /** One phrase for how someone feels about the player, from their side of the relationship. */

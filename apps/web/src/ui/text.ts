@@ -17,6 +17,14 @@ export function t(key: string, vars: Record<string, string | number> = {}): stri
   );
 }
 
+/** True when the content has wording for this key (so a raw key is never shown). */
+export function hasText(key: string): boolean {
+  return ui.text[key] !== undefined;
+}
+
+/** Every interface key the content defines (for tests). */
+export const UI_KEYS: readonly string[] = Object.keys(ui.text);
+
 export function money(n: number): string {
   return `₦${Math.round(n).toLocaleString("en-US")}`;
 }

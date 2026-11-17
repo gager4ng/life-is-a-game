@@ -482,4 +482,171 @@ Each decision has an ID (G-001, G-002, …). Newest at the bottom.
     world event). It stays off until he is up again.
   - Pause still pauses.
 
-<!-- Next free ID: G-027 -->
+## G-027: Why move the city to 3D
+
+**Date:** 2026-11-17 · **Status:** accepted · Roadmap step 4 ("G-004" in the brief)
+
+- The owner asked for a low-poly 3D Yaba. 3D gives three things the flat isometric view could
+  not:
+  - **Street level:** encounters happen down at street level, at the real place, with the two
+    people standing there. The separate flat backdrop scene is gone.
+  - **Follow Tobi:** a camera that walks behind him.
+  - **Turning the view:** the city can be rotated, so buildings no longer hide streets
+    permanently.
+- **The engine is untouched:**
+  - The renderer is replaced; the HUD, guidance, sound, save and controls stay.
+  - Engine tests and the determinism checks are unchanged.
+  - The city model (tiles, buildings, places, spots), the people mapping (`personView`) and the
+    looks are reused as they were.
+
+## G-028: Renderer: Three.js, everything built in code
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- **Three.js 0.170** (WebGL), pinned. PixiJS is removed. Three.js is the smallest mature 3D
+  library that does instancing, shadows and fog out of the box. Babylon.js and PlayCanvas are
+  heavier and engine-shaped; raw WebGL would cost weeks.
+- **No model files and no textures from outside.**
+  - Everything is built from boxes, cylinders, cones and spheres in code
+    (`apps/web/src/three/`), with flat Lambert shading and colour per vertex.
+  - Shop signs and the polytechnic arch are text drawn on one canvas (an atlas). Glows, blob
+    shadows and rain are canvas or shader drawn.
+  - Sign names are placeholder text in `ui/web.json` (`sign.0`…`sign.15`); places use their
+    own names.
+- **What is built:**
+  - **City fabric:** ground, roads with lane dashes, raised sidewalks with kerbs, zebra
+    crossings, yards, grass and water.
+  - **Buildings:** Lagos-style blocks with floor ledges, zinc gable or flat parapet roofs, water
+    tanks, AC units, windows (half of them lit at night), shop shutters with a glow behind, and
+    signboards.
+  - **Street furniture:** streetlights with halos, and trees.
+  - **Places:**
+    - buka canopy, benches and cooking pots on glowing coals
+    - market stalls with produce and umbrellas
+    - danfo park with parked danfos and a shelter
+    - live-spot stage, speakers, truss and swinging coloured lights
+    - polytechnic fence, gate, name arch and flag
+    - compound walls, clothesline and plastic chair
+- **Vehicles:** danfo (yellow, black stripes, roof rack), keke and okada with a rider.
+- **People:**
+  - Low-poly figures built from parts, using the same layered looks as before: skin, build,
+    hair (low cut, afro, braids, locs, bun, twists), gele, cap, fila or headscarf, and outfit
+    with colours.
+  - A walk cycle (legs and arms swing, a little bob), poses (idle, walk, talk, wave, ride) and
+    four expressions shown by eyes, brows and mouth (neutral, happy, annoyed, surprised).
+- **Cameras:**
+  - **City view:** an angled orthographic view like before. Drag pans, pinch or wheel zooms,
+    a two-finger twist (or ⟲ ⟳ under 🔍) turns it in 90° steps, double-tap finds Tobi.
+  - **Follow Tobi (🎥):** a street-level camera behind him. Drag or double-tap goes back to the
+    city view.
+  - **Encounters:**
+    - The camera comes down beside the two people at their real spot.
+    - It picks a side with open ground and nothing (wall, canopy, clothesline) between it and
+      their faces, checked by ray casts.
+    - Tobi always stands on the left.
+- **Light and weather:**
+  - The sun moves across the sky by time of day (`sunAt`, unit-tested) with warm low light at
+    dawn and dusk and a weak blue moon at night.
+  - The sky colour, darkness and glow come from the same `lightingFor` as before.
+  - Rain is GPU-animated streaks around the camera. Wet roads go darker and shiny.
+  - Harmattan is a dusty fog, heavy rain a grey murk.
+- **Tapping:**
+  - People are picked on screen near their figure.
+  - Places are picked by ray casts against invisible boxes.
+  - Anything else is the ground tile under the finger.
+  - Place labels, speech bubbles, the edge arrow and coach marks are projected from 3D.
+
+## G-029: Performance approach
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- **Few draw calls:**
+  - Everything static is merged at start-up into a handful of meshes: ground, buildings and
+    props, signs, night lights, baked shadows, lamp halos, stage lights.
+  - People are drawn as instanced body parts: every leg in the city is one draw call, every
+    head another, and so on.
+  - Vehicles are one instanced mesh per kind.
+  - The whole scene is about **21–23 draw calls** and 54–58k triangles.
+- **Cheap shadows:** on Low and Medium, buildings have baked footprint shadows on the ground and
+  people and vehicles have soft blob shadows. High adds a real 1024² sun shadow map.
+- **No per-frame allocation in hot paths;** rain costs no CPU at all.
+- **Graphics setting (☰ menu): Low / Medium / High.**
+  - Pixel ratio is capped at 1, 1.5 and 2.
+  - Rain drops: 350, 800 and 1400.
+  - Background walkers and vehicles vary with the level.
+  - Shadows and antialiasing are on High only.
+  - The default is Low on phones (mobile or touch-first browser) and on machines with ≤4 cores
+    or ≤4 GB. Otherwise Medium. The choice is remembered (`liag:gfx`).
+  - Resolution and crowd size change at once. Shadows and antialiasing apply after a reload.
+- **Measured** on the laptop's integrated GPU (Chromium, Pixel 7 size, Low), with
+  `PERF=1 pnpm e2e`:
+  - **59–60 fps** in the city view, the Follow view and a rainy night, with the CPU slowed 4×.
+  - Our own per-frame JavaScript takes about 1.6 ms.
+  - Even headless Chromium with software rendering managed about 25 fps, against about 10 for
+    the old 2D renderer.
+  - **Not yet measured on a real mid-range Android.** Its GPU is weaker than this laptop's, so
+    please check it on the phone.
+
+## G-030: Music: an Afrobeats-style groove generated in code
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- The two CC0 music files are removed; music is now generated with Web Audio:
+  - `audio/groove.ts` writes the patterns and timing; it is pure and unit-tested.
+  - `audio/music.ts` plays them.
+- **The groove:**
+  - **Instruments:** log drum (a pitched, dropping bass hit), kick, shaker, agogo-style bell,
+    rim, sub bass, warm detuned chords (pad plus off-beat stabs) and a conga-like tom.
+  - **Feel:** 16 steps a bar with swing on the off-beats, at 100–108 BPM.
+  - **Harmony:** chord loops in A minor (for example Am9 → Dm9 → G6 → Cmaj7).
+- **Variation, so it doesn't loop obviously:**
+  - Each bar's hits come from a seeded generator, so a few change from bar to bar.
+  - There are fills every fourth bar.
+  - A layer drops out for a few bars now and then.
+  - Phrases pick different chord loops.
+  - The same seed always gives the same music.
+- **Modes:**
+  - **Day:** the full groove, light.
+  - **Night:** slower, no kick or log drum, darker tone.
+  - **Live spot:** a separate, fuller groove at 108 BPM, placed at the live spot. It is louder
+    up close and in the evening (from 16:00, fully from 18:00); the background music gives way
+    there.
+  - The day/night switch happens on a bar line.
+  - Notes are scheduled 0.6 s ahead. A source that can't be heard (muted, music off, far from
+    the live spot) does no work.
+- **Licensed tracks later:**
+  - Drop audio files into `apps/web/public/music/` and list them in
+    `public/music/tracks.json` (`day`, `night`, `live`).
+  - Listed tracks replace the generated music for that mode. Night falls back to the day list,
+    and the generated groove fills any empty mode.
+  - No code change is needed.
+- Ambient sounds, UI sounds and the sound settings are unchanged (G-025).
+
+## G-031: Readable result lines and non-overlapping bubbles (bug fixes)
+
+**Date:** 2026-11-17 · **Status:** accepted
+
+- **"New lead: welcome ada":**
+  - **Cause:** the result card turned raw flag ids into text, and the scene's bookkeeping flag
+    (`scene:welcome_ada`) was shown too.
+  - **Fix:**
+    - Flags now show only their own placeholder wording from `ui/web.json`
+      (`flag.<id>`, for example "Ada told you where to find gig leads").
+    - Bookkeeping flags (`scene:*`) are never shown.
+    - A flag with no wording is left out rather than shown as an id.
+  - **Second leak:** the new test then found the Gist's "Changed" line printing flag and goal
+    ids. The shared journal now takes wording hooks; the browser passes readable text, and the
+    CLI keeps its ids for debugging.
+- **The test that guards it:**
+  - Every literal interface key in the code exists in the content.
+  - Every flag the content can give has wording.
+  - Four days of real play go through the result card and the Gist, and any id-shaped text
+    fails the test.
+  - The Playwright smoke test also reads the real result card on screen.
+- **Bubbles hidden under each other:** speech bubbles are now laid out by a pure, tested
+  function:
+  - The line being said stays over its speaker.
+  - The older bubble moves up out of the way, or beside it when there is no room above.
+  - Bubbles stay on screen and below the caption.
+
+<!-- Next free ID: G-032 -->
